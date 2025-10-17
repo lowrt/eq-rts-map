@@ -54,7 +54,9 @@ const generateWaveformData = (channelIndex: number) => {
 // Generate time labels - newest (0s) on right, oldest (300s) on left
 const generateTimeLabels = (length: number) => {
   return Array.from({ length }, (_, i) => {
-    const timeInSeconds = Math.floor((length - 1 - i) / 10); // Reverse: 300...0, as integers
+    // Calculate time: length=3000 means 300 seconds (3000/10)
+    // When i=0 (first label), we want 300s; when i=2999 (last label), we want 0s
+    const timeInSeconds = Math.round((length - i) / 10); // Reverse: 300...0, as integers
     return timeInSeconds.toString();
   });
 };
