@@ -64,11 +64,11 @@ const MIDDLE_GAP_EXTRA = (TOP_BOTTOM_GAP_REDUCTION * 2) / 4;
 const MIDDLE_GAP = BASE_GAP + MIDDLE_GAP_EXTRA;
 
 const CHANNEL_CONFIGS = [
-  { name: 'Channel 1 (Z)', baseline: TOTAL_HEIGHT - TOP_GAP, color: 'rgb(255, 255, 255)' },
-  { name: 'Channel 2 (N)', baseline: TOTAL_HEIGHT - TOP_GAP - MIDDLE_GAP, color: 'rgb(255, 255, 255)' },
-  { name: 'Channel 3 (E)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 2), color: 'rgb(255, 255, 255)' },
-  { name: 'Channel 4 (H1)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 3), color: 'rgb(255, 255, 255)' },
-  { name: 'Channel 5 (H2)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 4), color: 'rgb(255, 255, 255)' },
+  { name: 'Channel 1 (Z)', baseline: TOTAL_HEIGHT - TOP_GAP, color: 'rgb(255, 255, 255)', scale: 1.0 },
+  { name: 'Channel 2 (N)', baseline: TOTAL_HEIGHT - TOP_GAP - MIDDLE_GAP, color: 'rgb(255, 255, 255)', scale: 1.0 },
+  { name: 'Channel 3 (E)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 2), color: 'rgb(255, 255, 255)', scale: 1.0 },
+  { name: 'Channel 4 (H1)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 3), color: 'rgb(255, 255, 255)', scale: 1.0 },
+  { name: 'Channel 5 (H2)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 4), color: 'rgb(255, 255, 255)', scale: 1.0 },
 ];
 
 const CHART_CONTAINER = {
@@ -87,7 +87,7 @@ export default function Home() {
   const chartData = useMemo(() => {
     const datasets = CHANNEL_CONFIGS.map((config, index) => {
       const rawData = generateWaveformData(index);
-      const offsetData = rawData.map(value => value + config.baseline);
+      const offsetData = rawData.map(value => (value * config.scale) + config.baseline);
 
       return {
         label: config.name,
@@ -129,8 +129,8 @@ export default function Home() {
         callbacks: {
           label: function(context: any) {
             const datasetIndex = context.datasetIndex;
-            const baseline = CHANNEL_CONFIGS[datasetIndex].baseline;
-            const actualValue = context.parsed.y - baseline;
+            const config = CHANNEL_CONFIGS[datasetIndex];
+            const actualValue = (context.parsed.y - config.baseline) / config.scale;
             return `${context.dataset.label}: ${actualValue.toFixed(2)}`;
           }
         }
