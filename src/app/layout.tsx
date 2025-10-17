@@ -2,11 +2,11 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Footer from '@/components/footer';
-import '@/i18n' // 初始化 i18n
+import '@/i18n'
 
 export const metadata: Metadata = {
-  title: 'StorViz - 儲存空間視覺化分析',
-  description: '強大的儲存空間視覺化分析工具',
+  title: 'EQ RTS MAP',
+  description: 'EQ RTS MAP',
 }
 
 export default function RootLayout({
