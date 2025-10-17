@@ -70,6 +70,18 @@ export default function Home() {
 
   useEffect(() => {
     audioRef.current = new Audio('/audios/alarm.wav');
+
+    const enableAutostart = async () => {
+      try {
+        const { enable } = await import('@tauri-apps/plugin-autostart');
+        await enable();
+        console.log('Autostart enabled');
+      } catch (error) {
+        console.error('Failed to enable autostart:', error);
+      }
+    };
+
+    enableAutostart();
   }, []);
 
   useEffect(() => {
