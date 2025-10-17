@@ -28,10 +28,20 @@ ChartJS.register(
   Legend
 );
 
+const WAVEFORM_LENGTH = 600;
+const SAMPLE_RATE = 10;
+
 const generateTimeLabels = (length: number) => {
   return Array.from({ length }, (_, i) => {
-    const timeInSeconds = Math.round((length - i) / 10);
-    return timeInSeconds.toString();
+    // 只在特定位置顯示標籤
+    const position = length - i; // 從右到左的位置
+    const timeInSeconds = position / SAMPLE_RATE;
+
+    // 檢查是否在 10 秒間距且為奇數倍的 5 秒（50, 150, 250, 350, 450, 550）
+    if (position % 100 === 50 && timeInSeconds > 0 && timeInSeconds <= 60) {
+      return timeInSeconds.toString();
+    }
+    return '';
   });
 };
 
@@ -67,8 +77,10 @@ export default function Home() {
   const [dataTime, setDataTime] = useState<number>(0);
   const [hasAlert, setHasAlert] = useState<boolean>(false);
   const [maxIntensity, setMaxIntensity] = useState<number>(-3);
+  const [waveformData, setWaveformData] = useState<Record<number, (number | null)[]>>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WaveformWebSocket | null>(null);
+  const waveformBuffersRef = useRef<Record<number, number[]>>({});
 
   useEffect(() => {
     audioRef.current = new Audio('/audios/alarm.wav');
@@ -85,30 +97,68 @@ export default function Home() {
 
     enableAutostart();
 
+    const stationIds = [15138748, 6732340, 1480496, 1936924, 2012144];
+
+    stationIds.forEach(id => {
+      waveformBuffersRef.current[id] = [];
+    });
+
     const ws = new WaveformWebSocket({
       wsUrl: 'ws://lb.exptech.dev/ws',
       token: '',
       topics: ['websocket.trem.rtw.v1'],
-      stationIds: [15138748,6732340]
+      stationIds: stationIds
     });
 
     ws.onWaveform((data: WaveformData) => {
-      console.log('📊 Waveform data received:');
-      console.log('  Station ID:', data.id);
-      console.log('  Time:', new Date(data.time).toISOString());
-      console.log('  X axis points:', data.X.length);
-      console.log('  Y axis points:', data.Y.length);
-      console.log('  Z axis points:', data.Z.length);
-      console.log('  X sample:', data.X.slice(0, 5));
-      console.log('  Y sample:', data.Y.slice(0, 5));
-      console.log('  Z sample:', data.Z.slice(0, 5));
+      console.log('📊 Waveform data received from station', data.id, ':', data.X.length, 'points');
+      if (!waveformBuffersRef.current[data.id]) {
+        waveformBuffersRef.current[data.id] = [];
+      }
+      waveformBuffersRef.current[data.id].push(...data.X);
     });
 
     ws.connect().catch(console.error);
     wsRef.current = ws;
 
+    const updateInterval = setInterval(() => {
+      setWaveformData(prev => {
+        const newData: Record<number, (number | null)[]> = {};
+        let hasUpdate = false;
+
+        stationIds.forEach(stationId => {
+          const currentData = prev[stationId] || Array(WAVEFORM_LENGTH).fill(null);
+          const buffer = waveformBuffersRef.current[stationId] || [];
+
+          if (buffer.length > 0) {
+            hasUpdate = true;
+            const newStationData = [...currentData];
+            const bufferData = buffer.splice(0);
+
+            for (const value of bufferData) {
+              newStationData.push(value);
+              if (newStationData.length > WAVEFORM_LENGTH) {
+                newStationData.shift();
+              }
+            }
+
+            newData[stationId] = newStationData;
+          } else {
+            newData[stationId] = currentData;
+          }
+        });
+
+        if (hasUpdate) {
+          console.log('Chart updated');
+        }
+
+        return newData;
+      });
+    }, 500);
+
     return () => {
       ws.disconnect();
+      clearInterval(updateInterval);
     };
   }, []);
 
@@ -166,21 +216,35 @@ export default function Home() {
     };
   }, [hasAlert]);
 
-  const timeLabels = useMemo(() => generateTimeLabels(3000), []);
+  const timeLabels = useMemo(() => generateTimeLabels(WAVEFORM_LENGTH), []);
 
   const chartData = useMemo(() => {
-    const datasets = CHANNEL_CONFIGS.map((config) => {
-      const emptyData = Array(3000).fill(config.baseline);
+    const stationIds = [15138748, 6732340, 1480496, 1936924, 2012144];
+
+    const datasets = CHANNEL_CONFIGS.map((config, index) => {
+      let data: (number | null)[];
+
+      if (index < stationIds.length) {
+        const stationId = stationIds[index];
+        const stationWaveform = waveformData[stationId] || Array(WAVEFORM_LENGTH).fill(null);
+
+        data = stationWaveform.map(value =>
+          value !== null ? (value * config.scale) + config.baseline : null
+        );
+      } else {
+        data = Array(WAVEFORM_LENGTH).fill(null);
+      }
 
       return {
         label: config.name,
-        data: emptyData,
+        data: data,
         borderColor: config.color,
         backgroundColor: 'transparent',
         borderWidth: 1.5,
         pointRadius: 0,
         tension: 0,
         fill: false,
+        spanGaps: false,
       };
     });
 
@@ -188,7 +252,7 @@ export default function Home() {
       labels: timeLabels,
       datasets: datasets,
     };
-  }, [timeLabels]);
+  }, [timeLabels, waveformData]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -225,14 +289,24 @@ export default function Home() {
         },
         ticks: {
           color: theme === 'dark' ? '#9ca3af' : '#6b7280',
-          autoSkip: true,
-          maxTicksLimit: 10,
+          autoSkip: false,
+          maxRotation: 0,
+          minRotation: 0,
           font: {
             size: 10,
           },
         },
         grid: {
-          color: theme === 'dark' ? 'rgba(75, 85, 99, 0.3)' : 'rgba(209, 213, 219, 0.4)',
+          color: (context: any) => {
+            // 只在有標籤的位置顯示網格線
+            const index = context.index;
+            const position = WAVEFORM_LENGTH - index;
+            // 顯示在位置 50, 150, 250, 350, 450, 550（對應 5, 15, 25, 35, 45, 55 秒）
+            if (position % 100 === 50 && position > 0 && position <= WAVEFORM_LENGTH) {
+              return theme === 'dark' ? 'rgba(75, 85, 99, 0.3)' : 'rgba(209, 213, 219, 0.4)';
+            }
+            return 'transparent';
+          },
           drawOnChartArea: true,
           lineWidth: 0.5,
           drawTicks: false,
