@@ -316,18 +316,31 @@ const ChartSection = React.memo(() => {
           const labelYPosition = config.baseline + CHANNEL_LABEL_OFFSETS[index];
           const topPercentage = ((TOTAL_HEIGHT - labelYPosition) / TOTAL_HEIGHT) * 100;
           const stationId = index < STATION_IDS.length ? STATION_IDS[index] : null;
+          const stationConfig = stationConfigs[stationId || 0];
+          const isSENet = stationConfig?.scale === 20;
 
           return (
-            <div
-              key={index}
-              className="text-xs font-semibold px-2 py-1 rounded absolute -translate-y-1/2"
-              style={{
-                color: config.color,
-                backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
-                top: `${topPercentage}%`,
-              }}
-            >
-              {stationId || 'N/A'}
+            <div key={index} className="absolute -translate-y-1/2" style={{ top: `${topPercentage}%` }}>
+              <div
+                className="text-xs font-semibold px-2 py-1 rounded"
+                style={{
+                  color: '#ffffff',
+                  backgroundColor: '#000000',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                }}
+              >
+                <div>{stationId || 'N/A'}</div>
+                {stationConfig && (
+                  <div
+                    className="text-[10px] font-medium"
+                    style={{
+                      color: isSENet ? '#3b82f6' : '#eab308',
+                    }}
+                  >
+                    {isSENet ? 'SE-Net' : 'MS-Net'}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
