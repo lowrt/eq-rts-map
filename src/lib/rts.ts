@@ -1,16 +1,20 @@
 export interface StationInfo {
-  uuid: string;
-  code: string;
-  lat: number;
-  lon: number;
-  network: string;
+  net: string;
+  info: Array<{
+    code: number;
+    lat: number;
+    lon: number;
+    time: string;
+  }>;
+  work: boolean;
 }
 
 export interface RTSData {
-  id: string;
+  pga: number;
+  pgv: number;
   i: number;
   I: number;
-  alert: number;
+  alert?: number;
 }
 
 export interface StationFeature {
@@ -24,6 +28,7 @@ export interface StationFeature {
     code: string;
     intensity: number;
     color: string;
+    sortKey: number;
   };
 }
 
@@ -32,33 +37,64 @@ export interface StationGeoJSON {
   features: StationFeature[];
 }
 
-const INTENSITY_COLORS: Record<string, string> = {
-  intensity_3: '#0005d0',
-  intensity_2: '#004bf8',
-  intensity_1: '#009EF8',
-  intensity0: '#79E5FD',
-  intensity1: '#49E9AD',
-  intensity2: '#44fa34',
-  intensity3: '#beff0c',
-  intensity4: '#fff000',
-  intensity5: '#ff9300',
-  intensity6: '#fc5235',
-  intensity7: '#b720e9',
-};
+const INTENSITY_COLOR_STOPS = [
+  { value: -3, color: '#0005d0' },
+  { value: -2, color: '#004bf8' },
+  { value: -1, color: '#009EF8' },
+  { value: 0, color: '#79E5FD' },
+  { value: 1, color: '#49E9AD' },
+  { value: 2, color: '#44fa34' },
+  { value: 3, color: '#beff0c' },
+  { value: 4, color: '#fff000' },
+  { value: 5, color: '#ff9300' },
+  { value: 6, color: '#fc5235' },
+  { value: 7, color: '#b720e9' },
+];
+
+function hexToRgb(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map(x => {
+    const hex = Math.round(x).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
 
 function getIntensityColor(intensity: number): string {
-  if (intensity <= -3) return INTENSITY_COLORS.intensity_3;
-  if (intensity === -2) return INTENSITY_COLORS.intensity_2;
-  if (intensity === -1) return INTENSITY_COLORS.intensity_1;
-  if (intensity === 0) return INTENSITY_COLORS.intensity0;
-  if (intensity === 1) return INTENSITY_COLORS.intensity1;
-  if (intensity === 2) return INTENSITY_COLORS.intensity2;
-  if (intensity === 3) return INTENSITY_COLORS.intensity3;
-  if (intensity === 4) return INTENSITY_COLORS.intensity4;
-  if (intensity === 5) return INTENSITY_COLORS.intensity5;
-  if (intensity === 6) return INTENSITY_COLORS.intensity6;
-  if (intensity >= 7) return INTENSITY_COLORS.intensity7;
-  return INTENSITY_COLORS.intensity0;
+  if (intensity <= INTENSITY_COLOR_STOPS[0].value) {
+    return INTENSITY_COLOR_STOPS[0].color;
+  }
+  if (intensity >= INTENSITY_COLOR_STOPS[INTENSITY_COLOR_STOPS.length - 1].value) {
+    return INTENSITY_COLOR_STOPS[INTENSITY_COLOR_STOPS.length - 1].color;
+  }
+
+  for (let i = 0; i < INTENSITY_COLOR_STOPS.length - 1; i++) {
+    const stop1 = INTENSITY_COLOR_STOPS[i];
+    const stop2 = INTENSITY_COLOR_STOPS[i + 1];
+
+    if (intensity >= stop1.value && intensity <= stop2.value) {
+      const t = (intensity - stop1.value) / (stop2.value - stop1.value);
+      const rgb1 = hexToRgb(stop1.color);
+      const rgb2 = hexToRgb(stop2.color);
+
+      const r = lerp(rgb1[0], rgb2[0], t);
+      const g = lerp(rgb1[1], rgb2[1], t);
+      const b = lerp(rgb1[2], rgb2[2], t);
+
+      return rgbToHex(r, g, b);
+    }
+  }
+
+  return INTENSITY_COLOR_STOPS[0].color;
 }
 
 export async function fetchStationInfo(): Promise<Map<string, StationInfo>> {
@@ -76,7 +112,7 @@ export async function fetchStationInfo(): Promise<Map<string, StationInfo>> {
 export async function fetchRTSData(): Promise<Record<string, RTSData>> {
   const response = await fetch('https://lb.exptech.dev/api/v1/trem/rts');
   const data = await response.json();
-  return data;
+  return data.station || {};
 }
 
 export function createStationGeoJSON(
@@ -87,22 +123,24 @@ export function createStationGeoJSON(
 
   for (const [stationId, rts] of Object.entries(rtsData)) {
     const station = stationMap.get(stationId);
-    if (!station) continue;
+    if (!station || !station.work || station.info.length === 0) continue;
 
-    const intensity = rts.alert === 1 ? rts.I : rts.i;
+    const latestInfo = station.info[station.info.length - 1];
+    const intensity = rts.i;
     const color = getIntensityColor(intensity);
 
     features.push({
       type: 'Feature',
       geometry: {
         type: 'Point',
-        coordinates: [station.lon, station.lat],
+        coordinates: [latestInfo.lon, latestInfo.lat],
       },
       properties: {
         id: stationId,
-        code: station.code,
+        code: latestInfo.code.toString(),
         intensity,
         color,
+        sortKey: intensity,
       },
     });
   }

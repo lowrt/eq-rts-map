@@ -290,9 +290,9 @@ export default function Home() {
         <Map
           ref={mapRef}
           initialViewState={{
-            longitude: 121.5654,
-            latitude: 25.0330,
-            zoom: 8
+            longitude: 120.8,
+            latitude: 23.6,
+            zoom: 6.5
           }}
           dragPan={false}
           style={{ width: '100%', height: '100%' }}
@@ -313,10 +313,13 @@ export default function Home() {
               <Layer
                 id="station-circles"
                 type="circle"
+                layout={{
+                  'circle-sort-key': ['get', 'sortKey'],
+                }}
                 paint={{
-                  'circle-radius': 6,
+                  'circle-radius': 3,
                   'circle-color': ['get', 'color'],
-                  'circle-opacity': 0.8,
+                  'circle-opacity': 1,
                   'circle-stroke-width': 1,
                   'circle-stroke-color': '#ffffff',
                 }}
