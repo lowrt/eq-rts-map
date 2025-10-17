@@ -28,17 +28,21 @@ ChartJS.register(
   Legend
 );
 
-const WAVEFORM_LENGTH = 600;
-const SAMPLE_RATE = 10;
+const DISPLAY_DURATION = 60; // 60 seconds
+const STATION_IDS = [15138748, 6732340, 1480496, 1936924, 2012144];
+const CHART_LENGTH = 50 * DISPLAY_DURATION; // 3000 points for 50Hz (最高採樣率)
 
-const generateTimeLabels = (length: number) => {
+const generateTimeLabels = (length: number, sampleRate: number) => {
   return Array.from({ length }, (_, i) => {
     // 只在特定位置顯示標籤
     const position = length - i; // 從右到左的位置
-    const timeInSeconds = position / SAMPLE_RATE;
+    const timeInSeconds = position / sampleRate;
 
-    // 檢查是否在 10 秒間距且為奇數倍的 5 秒（50, 150, 250, 350, 450, 550）
-    if (position % 100 === 50 && timeInSeconds > 0 && timeInSeconds <= 60) {
+    // 每 10 秒顯示一個標籤（5, 15, 25, 35, 45, 55）
+    const interval = sampleRate * 10; // 10 秒的樣本數
+    const offset = sampleRate * 5; // 5 秒的樣本數
+
+    if (position % interval === offset && timeInSeconds > 0 && timeInSeconds <= 60) {
       return timeInSeconds.toString();
     }
     return '';
@@ -56,19 +60,12 @@ const MIDDLE_GAP_EXTRA = (TOP_BOTTOM_GAP_REDUCTION * 2) / 4;
 const MIDDLE_GAP = BASE_GAP + MIDDLE_GAP_EXTRA;
 
 const CHANNEL_CONFIGS = [
-  { name: 'Channel 1 (Z)', baseline: TOTAL_HEIGHT - TOP_GAP, color: 'rgb(255, 255, 255)', scale: 1.0 },
-  { name: 'Channel 2 (N)', baseline: TOTAL_HEIGHT - TOP_GAP - MIDDLE_GAP, color: 'rgb(255, 255, 255)', scale: 1.0 },
-  { name: 'Channel 3 (E)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 2), color: 'rgb(255, 255, 255)', scale: 1.0 },
-  { name: 'Channel 4 (H1)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 3), color: 'rgb(255, 255, 255)', scale: 1.0 },
-  { name: 'Channel 5 (H2)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 4), color: 'rgb(255, 255, 255)', scale: 1.0 },
+  { baseline: TOTAL_HEIGHT - TOP_GAP, color: 'rgb(255, 255, 255)' },
+  { baseline: TOTAL_HEIGHT - TOP_GAP - MIDDLE_GAP, color: 'rgb(255, 255, 255)' },
+  { baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 2), color: 'rgb(255, 255, 255)' },
+  { baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 3), color: 'rgb(255, 255, 255)' },
+  { baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 4), color: 'rgb(255, 255, 255)' },
 ];
-
-const CHART_CONTAINER = {
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
-};
 
 export default function Home() {
   const { theme } = useTheme();
@@ -81,6 +78,7 @@ export default function Home() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WaveformWebSocket | null>(null);
   const waveformBuffersRef = useRef<Record<number, number[]>>({});
+  const stationConfigsRef = useRef<Record<number, { sampleRate: number; dataLength: number; scale: number }>>({});
 
   useEffect(() => {
     audioRef.current = new Audio('/audios/alarm.wav');
@@ -97,9 +95,7 @@ export default function Home() {
 
     enableAutostart();
 
-    const stationIds = [15138748, 6732340, 1480496, 1936924, 2012144];
-
-    stationIds.forEach(id => {
+    STATION_IDS.forEach(id => {
       waveformBuffersRef.current[id] = [];
     });
 
@@ -107,11 +103,19 @@ export default function Home() {
       wsUrl: 'ws://lb.exptech.dev/ws',
       token: '',
       topics: ['websocket.trem.rtw.v1'],
-      stationIds: stationIds
+      stationIds: STATION_IDS
     });
 
     ws.onWaveform((data: WaveformData) => {
-      console.log('📊 Waveform data received from station', data.id, ':', data.X.length, 'points');
+      // 動態設定測站配置
+      if (!stationConfigsRef.current[data.id]) {
+        stationConfigsRef.current[data.id] = {
+          sampleRate: data.sampleRate,
+          dataLength: data.sampleRate * DISPLAY_DURATION,
+          scale: data.precision === 2 ? 100 : 1000, // 20Hz 和 50Hz 的縮放倍率
+        };
+      }
+
       if (!waveformBuffersRef.current[data.id]) {
         waveformBuffersRef.current[data.id] = [];
       }
@@ -124,22 +128,24 @@ export default function Home() {
     const updateInterval = setInterval(() => {
       setWaveformData(prev => {
         const newData: Record<number, (number | null)[]> = {};
-        let hasUpdate = false;
 
-        stationIds.forEach(stationId => {
-          const currentData = prev[stationId] || Array(WAVEFORM_LENGTH).fill(null);
+        STATION_IDS.forEach((stationId: number) => {
+          const config = stationConfigsRef.current[stationId];
+          if (!config) {
+            newData[stationId] = prev[stationId] || [];
+            return;
+          }
+
+          const maxLength = config.dataLength;
+          const currentData = prev[stationId] || Array(maxLength).fill(null);
           const buffer = waveformBuffersRef.current[stationId] || [];
 
           if (buffer.length > 0) {
-            hasUpdate = true;
-            const newStationData = [...currentData];
             const bufferData = buffer.splice(0);
+            const newStationData = [...currentData, ...bufferData];
 
-            for (const value of bufferData) {
-              newStationData.push(value);
-              if (newStationData.length > WAVEFORM_LENGTH) {
-                newStationData.shift();
-              }
+            while (newStationData.length > maxLength) {
+              newStationData.shift();
             }
 
             newData[stationId] = newStationData;
@@ -147,10 +153,6 @@ export default function Home() {
             newData[stationId] = currentData;
           }
         });
-
-        if (hasUpdate) {
-          console.log('Chart updated');
-        }
 
         return newData;
       });
@@ -216,27 +218,58 @@ export default function Home() {
     };
   }, [hasAlert]);
 
-  const timeLabels = useMemo(() => generateTimeLabels(WAVEFORM_LENGTH), []);
+  const timeLabels = useMemo(() => generateTimeLabels(CHART_LENGTH, 50), []);
 
   const chartData = useMemo(() => {
-    const stationIds = [15138748, 6732340, 1480496, 1936924, 2012144];
-
     const datasets = CHANNEL_CONFIGS.map((config, index) => {
       let data: (number | null)[];
 
-      if (index < stationIds.length) {
-        const stationId = stationIds[index];
-        const stationWaveform = waveformData[stationId] || Array(WAVEFORM_LENGTH).fill(null);
+      if (index < STATION_IDS.length) {
+        const stationId = STATION_IDS[index];
+        const stationConfig = stationConfigsRef.current[stationId];
 
-        data = stationWaveform.map(value =>
-          value !== null ? (value * config.scale) + config.baseline : null
-        );
+        if (!stationConfig) {
+          data = Array(CHART_LENGTH).fill(null);
+        } else {
+          const stationWaveform = waveformData[stationId] || Array(stationConfig.dataLength).fill(null);
+
+          // 如果是 20Hz 測站，需要上採樣到 50Hz 以匹配圖表長度
+          if (stationConfig.sampleRate === 20) {
+            data = [];
+            for (let i = 0; i < stationWaveform.length; i++) {
+              const value = stationWaveform[i];
+              if (value !== null) {
+                const scaledValue = (value * stationConfig.scale) + config.baseline;
+                data.push(scaledValue);
+                data.push(scaledValue);
+                if (i % 2 === 0) data.push(scaledValue);
+              } else {
+                data.push(null);
+                data.push(null);
+                if (i % 2 === 0) data.push(null);
+              }
+            }
+          } else {
+            // 50Hz 測站直接使用
+            data = stationWaveform.map(value =>
+              value !== null ? (value * stationConfig.scale) + config.baseline : null
+            );
+          }
+
+          // 確保數據長度為 CHART_LENGTH
+          while (data.length < CHART_LENGTH) {
+            data.unshift(null);
+          }
+          while (data.length > CHART_LENGTH) {
+            data.shift();
+          }
+        }
       } else {
-        data = Array(WAVEFORM_LENGTH).fill(null);
+        data = Array(CHART_LENGTH).fill(null);
       }
 
       return {
-        label: config.name,
+        label: `Station ${STATION_IDS[index] || index}`,
         data: data,
         borderColor: config.color,
         backgroundColor: 'transparent',
@@ -257,6 +290,9 @@ export default function Home() {
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 0,
+    },
     interaction: {
       mode: 'index' as const,
       intersect: false,
@@ -298,11 +334,13 @@ export default function Home() {
         },
         grid: {
           color: (context: any) => {
-            // 只在有標籤的位置顯示網格線
+            // 只在有標籤的位置顯示網格線（50Hz，每 10 秒 = 500 個點）
             const index = context.index;
-            const position = WAVEFORM_LENGTH - index;
-            // 顯示在位置 50, 150, 250, 350, 450, 550（對應 5, 15, 25, 35, 45, 55 秒）
-            if (position % 100 === 50 && position > 0 && position <= WAVEFORM_LENGTH) {
+            const position = CHART_LENGTH - index;
+            const interval = 50 * 10; // 10 秒的樣本數（50Hz）
+            const offset = 50 * 5; // 5 秒的樣本數（50Hz）
+            // 顯示在 5, 15, 25, 35, 45, 55 秒的位置
+            if (position % interval === offset && position > 0 && position <= CHART_LENGTH) {
               return theme === 'dark' ? 'rgba(75, 85, 99, 0.3)' : 'rgba(209, 213, 219, 0.4)';
             }
             return 'transparent';
@@ -533,10 +571,11 @@ export default function Home() {
           {CHANNEL_CONFIGS.map((config, index) => {
             const labelYPosition = config.baseline + CHANNEL_LABEL_OFFSETS[index];
             const topPercentage = ((TOTAL_HEIGHT - labelYPosition) / TOTAL_HEIGHT) * 100;
+            const stationId = index < STATION_IDS.length ? STATION_IDS[index] : null;
 
             return (
               <div
-                key={config.name}
+                key={index}
                 className="text-xs font-semibold px-2 py-1 rounded absolute -translate-y-1/2"
                 style={{
                   color: config.color,
@@ -544,22 +583,14 @@ export default function Home() {
                   top: `${topPercentage}%`,
                 }}
               >
-                {config.name}
+                {stationId || 'N/A'}
               </div>
             );
           })}
         </div>
 
-        <div
-          className="absolute"
-          style={{
-            top: CHART_CONTAINER.top,
-            left: CHART_CONTAINER.left,
-            width: CHART_CONTAINER.width,
-            height: CHART_CONTAINER.height,
-          }}
-        >
-          <Line data={chartData} options={chartOptions} />
+        <div className="absolute inset-0">
+          <Line redraw data={chartData} options={chartOptions} />
         </div>
       </div>
     </div>

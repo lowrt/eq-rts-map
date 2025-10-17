@@ -45,7 +45,7 @@ export default function Footer() {
           className="h-5 w-5 hover:bg-accent/50 transition-colors"
           title="GitHub Repository"
         >
-          <Github className="h-3 w-3" />
+          <Github className="h-2 w-2" />
         </Button>
       </div>
     </footer>

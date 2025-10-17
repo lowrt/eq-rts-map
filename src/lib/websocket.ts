@@ -4,6 +4,8 @@ export interface WaveformData {
   Z: number[];
   id: number;
   time: number;
+  precision: number;
+  sampleRate: number;
 }
 
 export interface WebSocketConfig {
@@ -58,12 +60,16 @@ function decodeWaveform(encoded: EncodedWaveform): WaveformData {
   for (let i = 0; i < count; i++) Y.push(readValue());
   for (let i = 0; i < count; i++) Z.push(readValue());
 
+  const sampleRate = precision === 2 ? 20 : 50;
+
   return {
     X,
     Y,
     Z,
     id: encoded.id,
-    time: encoded.time
+    time: encoded.time,
+    precision,
+    sampleRate
   };
 }
 
@@ -93,18 +99,15 @@ export class WaveformWebSocket {
         this.ws = new WebSocket(this.config.wsUrl);
 
         this.ws.onopen = () => {
-          console.log('✅ WebSocket connected');
           this.subscribe();
           resolve();
         };
 
         this.ws.onerror = (error) => {
-          console.error('❌ WebSocket error:', error);
           reject(error);
         };
 
         this.ws.onclose = () => {
-          console.log('🔌 WebSocket closed');
           this.scheduleReconnect();
         };
 
@@ -130,33 +133,21 @@ export class WaveformWebSocket {
       time: Date.now()
     };
 
-    console.log('📤 Subscribing to topics:', this.config.topics);
     this.ws.send(JSON.stringify(message));
   }
 
   private handleMessage(event: MessageEvent) {
     try {
       const message = JSON.parse(event.data);
-      console.log('📨 Message received:', message.type, message);
 
       switch (message.type) {
         case 'info':
-          if (message.event === 'connect') {
-            console.log('✅ Subscription successful');
-            console.log('  Success:', message.topic?.success || []);
-            console.log('  Failed:', message.topic?.failed || []);
-          } else {
-            console.log('ℹ️ Info event:', message);
-          }
           break;
 
         case 'data':
-          console.log('📊 Data message received:', message);
-
           const payload = message.payload?.payload || message.payload;
 
           if (payload?.data && payload.data._type === 'Buffer') {
-            console.log('  Processing buffer data...');
             const base64Data = payload.data.data;
             const buffer = base64ToUint8Array(base64Data);
 
@@ -167,41 +158,28 @@ export class WaveformWebSocket {
               count: payload.count
             });
 
-            console.log('  Decoded waveform:', waveform);
-
             if (this.onWaveformCallback) {
               this.onWaveformCallback(waveform);
             }
-          } else {
-            console.log('  Payload structure:', {
-              hasPayload: !!message.payload,
-              hasNestedPayload: !!message.payload?.payload,
-              hasData: !!payload?.data,
-              dataType: payload?.data?._type
-            });
           }
           break;
 
         case 'ntp':
-          console.log('⏰ NTP sync:', new Date(message.time).toISOString());
           break;
 
         default:
-          console.log('📨 Unknown message type:', message.type);
+          break;
       }
     } catch (error) {
-      console.error('❌ Message parse error:', error);
-      console.log('Raw message:', event.data);
     }
   }
 
   private scheduleReconnect() {
     if (this.reconnectTimer) return;
 
-    console.log(`🔄 Reconnecting in ${this.reconnectDelay / 1000}s...`);
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
-      this.connect().catch(console.error);
+      this.connect().catch(() => {});
     }, this.reconnectDelay);
   }
 
