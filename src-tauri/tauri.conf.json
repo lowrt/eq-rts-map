@@ -1,0 +1,83 @@
+{
+  "productName": "eq-rts-map",
+  "version": "1.0.0-rc.3",
+  "identifier": "com.eq-rts-map",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../out"
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": ["nsis", "app", "appimage"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": ["audios/*"],
+    "macOS": {
+      "minimumSystemVersion": "10.13",
+      "entitlements": "Entitlements.plist"
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "EQ RTS MAP - ExpTech Studio",
+        "width": 840,
+        "height": 630,
+        "resizable": false,
+        "fullscreen": false,
+        "maximizable": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": ["'self'", "ipc:", "http://ipc.localhost"],
+        "img-src": ["'self'", "asset:", "http://asset.localhost", "data:"],
+        "media-src": ["'self'", "asset:", "http://asset.localhost"],
+        "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        "style-src": ["'self'", "'unsafe-inline'"]
+      },
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$RESOURCE/**"]
+      },
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "windows": ["*"],
+          "permissions": [
+            "core:default",
+            "dialog:allow-open",
+            "shell:allow-open",
+            "updater:default",
+            "updater:allow-check",
+            "updater:allow-download-and-install"
+          ]
+        }
+      ]
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMwNzQ2MEY3NjdEM0QyQzgKUldUSTB0Tm45MkIwd0wzcXlZbis3cmJCMXFoeG1neGhMOFNLdjVSdWdhZmZERDY2K3F4RmRMc04K",
+      "endpoints": [
+        "https://github.com/ExpTechTW/eq-rts-map/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
