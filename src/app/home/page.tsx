@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import Map, { NavigationControl, type MapRef } from 'react-map-gl/maplibre';
+import Map, { NavigationControl, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -15,6 +15,7 @@ import {
   Legend,
 } from 'chart.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { fetchAndProcessStationData, type StationGeoJSON } from '@/lib/rts';
 
 ChartJS.register(
   CategoryScale,
@@ -81,6 +82,23 @@ const CHART_CONTAINER = {
 export default function Home() {
   const { theme } = useTheme();
   const mapRef = useRef<MapRef>(null);
+  const [stationData, setStationData] = useState<StationGeoJSON | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await fetchAndProcessStationData();
+        setStationData(data);
+      } catch (error) {
+        console.error('Failed to fetch station data:', error);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const timeLabels = useMemo(() => generateTimeLabels(3000), []);
 
@@ -276,6 +294,7 @@ export default function Home() {
             latitude: 25.0330,
             zoom: 8
           }}
+          dragPan={false}
           style={{ width: '100%', height: '100%' }}
           mapStyle={mapStyle}
           attributionControl={false}
@@ -289,7 +308,21 @@ export default function Home() {
             console.log('Map error:', error);
           }}
         >
-          <NavigationControl position="top-right" />
+          {stationData && (
+            <Source id="stations" type="geojson" data={stationData}>
+              <Layer
+                id="station-circles"
+                type="circle"
+                paint={{
+                  'circle-radius': 6,
+                  'circle-color': ['get', 'color'],
+                  'circle-opacity': 0.8,
+                  'circle-stroke-width': 1,
+                  'circle-stroke-color': '#ffffff',
+                }}
+              />
+            </Source>
+          )}
         </Map>
       </div>
 
