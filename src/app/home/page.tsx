@@ -131,8 +131,8 @@ export default function Home() {
     };
   }, [timeLabels]);
 
-  // Chart options for single chart with all traces
-  const chartOptions = {
+  // Chart options - memoized to prevent chart re-render
+  const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
@@ -218,7 +218,7 @@ export default function Home() {
         },
       },
     },
-  };
+  }), [theme]);
 
   // ExpTech Studio map style - memoized to prevent recreation
   const mapStyle: any = useMemo(() => ({
@@ -311,6 +311,9 @@ export default function Home() {
             dragRotate={false}
             touchZoomRotate={false}
             boxZoom={false}
+            onError={(error) => {
+              console.log('Map error:', error);
+            }}
         >
           <NavigationControl position="top-right" />
         </Map>
