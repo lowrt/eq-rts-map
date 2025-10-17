@@ -56,7 +56,7 @@ const generateTimeLabels = (length: number) => {
 const TOTAL_HEIGHT = 630;
 const NUM_CHANNELS = 5;
 const TOP_BOTTOM_GAP_REDUCTION = 50;
-const LABEL_OFFSET_FROM_BASELINE = 30;
+const CHANNEL_LABEL_OFFSETS = [30, 45, 50, 60, 70];
 
 const BASE_GAP = TOTAL_HEIGHT / (NUM_CHANNELS + 1);
 const TOP_GAP = BASE_GAP - TOP_BOTTOM_GAP_REDUCTION;
@@ -64,11 +64,11 @@ const MIDDLE_GAP_EXTRA = (TOP_BOTTOM_GAP_REDUCTION * 2) / 4;
 const MIDDLE_GAP = BASE_GAP + MIDDLE_GAP_EXTRA;
 
 const CHANNEL_CONFIGS = [
-  { name: 'Channel 1 (Z)', baseline: TOTAL_HEIGHT - TOP_GAP, color: 'rgb(255, 99, 132)' },
-  { name: 'Channel 2 (N)', baseline: TOTAL_HEIGHT - TOP_GAP - MIDDLE_GAP, color: 'rgb(54, 162, 235)' },
-  { name: 'Channel 3 (E)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 2), color: 'rgb(75, 192, 192)' },
-  { name: 'Channel 4 (H1)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 3), color: 'rgb(255, 206, 86)' },
-  { name: 'Channel 5 (H2)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 4), color: 'rgb(153, 102, 255)' },
+  { name: 'Channel 1 (Z)', baseline: TOTAL_HEIGHT - TOP_GAP, color: 'rgb(255, 255, 255)' },
+  { name: 'Channel 2 (N)', baseline: TOTAL_HEIGHT - TOP_GAP - MIDDLE_GAP, color: 'rgb(255, 255, 255)' },
+  { name: 'Channel 3 (E)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 2), color: 'rgb(255, 255, 255)' },
+  { name: 'Channel 4 (H1)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 3), color: 'rgb(255, 255, 255)' },
+  { name: 'Channel 5 (H2)', baseline: TOTAL_HEIGHT - TOP_GAP - (MIDDLE_GAP * 4), color: 'rgb(255, 255, 255)' },
 ];
 
 const CHART_CONTAINER = {
@@ -295,8 +295,8 @@ export default function Home() {
 
       <div className="w-1/2 h-full bg-gray-50 dark:bg-gray-900 relative">
         <div className="absolute left-2 top-0 bottom-0 z-10 pointer-events-none">
-          {CHANNEL_CONFIGS.map((config) => {
-            const labelYPosition = config.baseline + LABEL_OFFSET_FROM_BASELINE;
+          {CHANNEL_CONFIGS.map((config, index) => {
+            const labelYPosition = config.baseline + CHANNEL_LABEL_OFFSETS[index];
             const topPercentage = ((TOTAL_HEIGHT - labelYPosition) / TOTAL_HEIGHT) * 100;
 
             return (
