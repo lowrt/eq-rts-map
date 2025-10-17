@@ -380,7 +380,7 @@ export default function Home() {
         const config = {
           sampleRate: data.sampleRate,
           dataLength: data.sampleRate * DISPLAY_DURATION,
-          scale: data.precision === 2 ? 20 : 15000, // 20Hz 和 50Hz 的縮放倍率
+          scale: data.precision === 2 ? 20 : 20000, // 20Hz 和 50Hz 的縮放倍率
         };
         stationConfigsRef.current[data.id] = config;
         setStationConfigs(prev => ({ ...prev, [data.id]: config }));
