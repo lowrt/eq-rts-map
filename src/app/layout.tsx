@@ -16,7 +16,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW" suppressHydrationWarning>
-      <script src="https://unpkg.com/react-scan/dist/auto.global.js"></script>
       <body>
         <ThemeProvider
           attribute="class"

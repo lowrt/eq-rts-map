@@ -26,7 +26,7 @@ ChartJS.register(
 );
 
 const DISPLAY_DURATION = 60;
-const STATION_IDS = [15138748, 6732340, 1480496, 1936924, 2012144];
+const STATION_IDS = [4812424, 6126556, 11336952, 11334880, 1480496];
 const CHART_LENGTH = 50 * DISPLAY_DURATION;
 
 const generateTimeLabels = (length: number, sampleRate: number) => {
