@@ -394,7 +394,7 @@ export default function Home() {
       console.log(`📊 Station ${data.id} buffer now has ${waveformBuffersRef.current[data.id].length} points`);
     });
 
-    ws.connect().catch(console.error);
+    ws.connect().catch(console.log);
     wsRef.current = ws;
 
     const updateInterval = setInterval(() => {
