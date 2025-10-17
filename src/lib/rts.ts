@@ -51,7 +51,7 @@ export interface ProcessedStationData {
   int: any[];
 }
 
-const INTENSITY_COLOR_STOPS = [
+export const INTENSITY_COLOR_STOPS = [
   { value: -3, color: '#0005d0' },
   { value: -2, color: '#004bf8' },
   { value: -1, color: '#009EF8' },
@@ -83,7 +83,7 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function getIntensityColor(intensity: number): string {
+export function getIntensityColor(intensity: number): string {
   if (intensity <= INTENSITY_COLOR_STOPS[0].value) {
     return INTENSITY_COLOR_STOPS[0].color;
   }
