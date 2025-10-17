@@ -17,6 +17,14 @@ export interface RTSData {
   alert?: number;
 }
 
+export interface RTSResponse {
+  time: number;
+  station: Record<string, RTSData>;
+  int: any[];
+}
+
+export let REPLAY_TIME = 1759881125;
+
 export interface StationFeature {
   type: 'Feature';
   geometry: {
@@ -35,6 +43,12 @@ export interface StationFeature {
 export interface StationGeoJSON {
   type: 'FeatureCollection';
   features: StationFeature[];
+}
+
+export interface ProcessedStationData {
+  geojson: StationGeoJSON;
+  time: number;
+  int: any[];
 }
 
 const INTENSITY_COLOR_STOPS = [
@@ -109,10 +123,23 @@ export async function fetchStationInfo(): Promise<Map<string, StationInfo>> {
   return stationMap;
 }
 
-export async function fetchRTSData(): Promise<Record<string, RTSData>> {
-  const response = await fetch('https://lb.exptech.dev/api/v1/trem/rts');
+export async function fetchRTSData(): Promise<RTSResponse> {
+  let url: string;
+  if (REPLAY_TIME === 0) {
+    url = 'https://lb.exptech.dev/api/v1/trem/rts';
+  } else {
+    url = `https://api-1.exptech.dev/api/v2/trem/rts/${REPLAY_TIME}`;
+    REPLAY_TIME += 1;
+  }
+
+  const response = await fetch(url);
   const data = await response.json();
-  return data.station || {};
+
+  return {
+    time: data.time || Date.now(),
+    station: data.station || {},
+    int: data.int || [],
+  };
 }
 
 export function createStationGeoJSON(
@@ -151,11 +178,17 @@ export function createStationGeoJSON(
   };
 }
 
-export async function fetchAndProcessStationData(): Promise<StationGeoJSON> {
-  const [stationMap, rtsData] = await Promise.all([
+export async function fetchAndProcessStationData(): Promise<ProcessedStationData> {
+  const [stationMap, rtsResponse] = await Promise.all([
     fetchStationInfo(),
     fetchRTSData(),
   ]);
 
-  return createStationGeoJSON(stationMap, rtsData);
+  const geojson = createStationGeoJSON(stationMap, rtsResponse.station);
+
+  return {
+    geojson,
+    time: rtsResponse.time,
+    int: rtsResponse.int,
+  };
 }

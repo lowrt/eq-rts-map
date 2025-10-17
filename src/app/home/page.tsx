@@ -15,7 +15,7 @@ import {
   Legend,
 } from 'chart.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { fetchAndProcessStationData, type StationGeoJSON } from '@/lib/rts';
+import { fetchAndProcessStationData, type StationGeoJSON, type ProcessedStationData } from '@/lib/rts';
 
 ChartJS.register(
   CategoryScale,
@@ -83,12 +83,28 @@ export default function Home() {
   const { theme } = useTheme();
   const mapRef = useRef<MapRef>(null);
   const [stationData, setStationData] = useState<StationGeoJSON | null>(null);
+  const [dataTime, setDataTime] = useState<number>(0);
+  const lastAlarmTimeRef = useRef<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio('/audios/alarm.wav');
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const data = await fetchAndProcessStationData();
-        setStationData(data);
+        setStationData(data.geojson);
+        setDataTime(data.time);
+
+        if (data.int && data.int.length > 0) {
+          const now = Date.now();
+          if (now - lastAlarmTimeRef.current >= 2000) {
+            audioRef.current?.play().catch(err => console.error('Failed to play alarm:', err));
+            lastAlarmTimeRef.current = now;
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch station data:', error);
       }
@@ -284,9 +300,21 @@ export default function Home() {
     ],
   }), []);
 
+  const formatTime = (timestamp: number) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+  };
+
   return (
     <div className="flex h-screen w-full">
-      <div className="w-1/2 h-full">
+      <div className="w-1/2 h-full relative">
         <Map
           ref={mapRef}
           initialViewState={{
@@ -317,7 +345,7 @@ export default function Home() {
                   'circle-sort-key': ['get', 'sortKey'],
                 }}
                 paint={{
-                  'circle-radius': 3,
+                  'circle-radius': 4,
                   'circle-color': ['get', 'color'],
                   'circle-opacity': 1,
                   'circle-stroke-width': 1,
@@ -327,6 +355,15 @@ export default function Home() {
             </Source>
           )}
         </Map>
+        {dataTime > 0 && (
+          <div className="absolute bottom-3 right-3 z-50">
+            <div className="bg-background/90 backdrop-blur-sm border border-border/50 rounded-md px-2.5 py-1.5 shadow-md">
+              <p className="text-[10px] text-muted-foreground font-medium">
+                {formatTime(dataTime)}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="w-1/2 h-full bg-gray-50 dark:bg-gray-900 relative">
