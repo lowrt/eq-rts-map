@@ -21,9 +21,10 @@ export interface RTSResponse {
   time: number;
   station: Record<string, RTSData>;
   int: any[];
+  box: Record<string, any>;
 }
 
-export let REPLAY_TIME = 1759881125;
+export let REPLAY_TIME = 0;
 
 export interface StationFeature {
   type: 'Feature';
@@ -49,6 +50,7 @@ export interface ProcessedStationData {
   geojson: StationGeoJSON;
   time: number;
   int: any[];
+  box: Record<string, any>;
 }
 
 export const INTENSITY_COLOR_STOPS = [
@@ -139,6 +141,7 @@ export async function fetchRTSData(): Promise<RTSResponse> {
     time: data.time || Date.now(),
     station: data.station || {},
     int: data.int || [],
+    box: data.box || {},
   };
 }
 
@@ -153,7 +156,7 @@ export function createStationGeoJSON(
     if (!station || !station.work || station.info.length === 0) continue;
 
     const latestInfo = station.info[station.info.length - 1];
-    const intensity = rts.i;
+    const intensity = rts.alert ? rts.I : rts.i;
     const color = getIntensityColor(intensity);
 
     features.push({
@@ -190,5 +193,6 @@ export async function fetchAndProcessStationData(): Promise<ProcessedStationData
     geojson,
     time: rtsResponse.time,
     int: rtsResponse.int,
+    box: rtsResponse.box,
   };
 }

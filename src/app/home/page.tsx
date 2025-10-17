@@ -27,26 +27,6 @@ ChartJS.register(
   Legend
 );
 
-const generateWaveformData = (channelIndex: number) => {
-  const length = 3000;
-  const data: number[] = [];
-  for (let i = 0; i < length; i++) {
-    const base = Math.sin(i / 20) * 50;
-    const noise = (Math.random() - 0.5) * 30;
-    let value = base + noise;
-
-    if (channelIndex === 2) {
-      const timeInSeconds = i / 10;
-      if (timeInSeconds >= 18 && timeInSeconds <= 22) {
-        value *= 10;
-      }
-    }
-
-    data.push(value);
-  }
-  return data.reverse();
-};
-
 const generateTimeLabels = (length: number) => {
   return Array.from({ length }, (_, i) => {
     const timeInSeconds = Math.round((length - i) / 10);
@@ -99,7 +79,7 @@ export default function Home() {
         setStationData(data.geojson);
         setDataTime(data.time);
 
-        const shouldAlert = Array.isArray(data.int) && data.int.length > 0;
+        const shouldAlert = data.box && Object.keys(data.box).length > 0;
         setHasAlert(shouldAlert);
 
         let max = -3;
@@ -149,13 +129,12 @@ export default function Home() {
   const timeLabels = useMemo(() => generateTimeLabels(3000), []);
 
   const chartData = useMemo(() => {
-    const datasets = CHANNEL_CONFIGS.map((config, index) => {
-      const rawData = generateWaveformData(index);
-      const offsetData = rawData.map(value => (value * config.scale) + config.baseline);
+    const datasets = CHANNEL_CONFIGS.map((config) => {
+      const emptyData = Array(3000).fill(config.baseline);
 
       return {
         label: config.name,
-        data: offsetData,
+        data: emptyData,
         borderColor: config.color,
         backgroundColor: 'transparent',
         borderWidth: 1.5,
@@ -189,15 +168,7 @@ export default function Home() {
         display: false,
       },
       tooltip: {
-        enabled: true,
-        callbacks: {
-          label: function(context: any) {
-            const datasetIndex = context.datasetIndex;
-            const config = CHANNEL_CONFIGS[datasetIndex];
-            const actualValue = (context.parsed.y - config.baseline) / config.scale;
-            return `${context.dataset.label}: ${actualValue.toFixed(2)}`;
-          }
-        }
+        enabled: false,
       },
     },
     scales: {
