@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTheme } from 'next-themes';
 import Map, { NavigationControl, type MapRef } from 'react-map-gl/maplibre';
 import { Line } from 'react-chartjs-2';
@@ -92,17 +92,6 @@ const CHANNEL_CONFIGS = [
 export default function Home() {
   const { theme } = useTheme();
   const mapRef = useRef<MapRef>(null);
-
-  const [viewState, setViewState] = useState({
-    longitude: 121.5654,
-    latitude: 25.0330,
-    zoom: 8
-  });
-
-  // Memoize onMove callback to prevent recreation on every render
-  const onMove = useCallback((evt: any) => {
-    setViewState(evt.viewState);
-  }, []);
 
   // Memoize time labels and chart data to avoid regenerating on every render
   const timeLabels = useMemo(() => generateTimeLabels(3000), []);
@@ -300,8 +289,11 @@ export default function Home() {
       <div className="w-1/2 h-full">
         <Map
             ref={mapRef}
-            {...viewState}
-            onMove={onMove}
+            initialViewState={{
+              longitude: 120.8,
+              latitude: 23.6,
+              zoom: 6.5
+            }}
             style={{ width: '100%', height: '100%' }}
             mapStyle={mapStyle}
             attributionControl={false}
@@ -315,7 +307,6 @@ export default function Home() {
               console.log('Map error:', error);
             }}
         >
-          <NavigationControl position="top-right" />
         </Map>
       </div>
 
