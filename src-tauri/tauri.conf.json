@@ -1,6 +1,6 @@
 {
   "productName": "eq-rts-map",
-  "version": "1.0.0-rc.3",
+  "version": "1.0.0-beta.1",
   "identifier": "com.eq-rts-map",
   "build": {
     "beforeDevCommand": "bun run dev",
