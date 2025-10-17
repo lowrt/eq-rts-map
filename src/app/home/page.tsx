@@ -16,6 +16,7 @@ import {
 } from 'chart.js';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { fetchAndProcessStationData, type StationGeoJSON, type ProcessedStationData } from '@/lib/rts';
+import { WaveformWebSocket, type WaveformData } from '@/lib/websocket';
 
 ChartJS.register(
   CategoryScale,
@@ -67,6 +68,7 @@ export default function Home() {
   const [hasAlert, setHasAlert] = useState<boolean>(false);
   const [maxIntensity, setMaxIntensity] = useState<number>(-3);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const wsRef = useRef<WaveformWebSocket | null>(null);
 
   useEffect(() => {
     audioRef.current = new Audio('/audios/alarm.wav');
@@ -82,6 +84,32 @@ export default function Home() {
     };
 
     enableAutostart();
+
+    const ws = new WaveformWebSocket({
+      wsUrl: 'ws://lb.exptech.dev/ws',
+      token: '',
+      topics: ['websocket.trem.rtw.v1'],
+      stationIds: [15138748,6732340]
+    });
+
+    ws.onWaveform((data: WaveformData) => {
+      console.log('📊 Waveform data received:');
+      console.log('  Station ID:', data.id);
+      console.log('  Time:', new Date(data.time).toISOString());
+      console.log('  X axis points:', data.X.length);
+      console.log('  Y axis points:', data.Y.length);
+      console.log('  Z axis points:', data.Z.length);
+      console.log('  X sample:', data.X.slice(0, 5));
+      console.log('  Y sample:', data.Y.slice(0, 5));
+      console.log('  Z sample:', data.Z.slice(0, 5));
+    });
+
+    ws.connect().catch(console.error);
+    wsRef.current = ws;
+
+    return () => {
+      ws.disconnect();
+    };
   }, []);
 
   useEffect(() => {
