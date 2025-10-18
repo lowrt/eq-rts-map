@@ -24,8 +24,13 @@ let mainWindow: BrowserWindow | null;
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+// Log auto-updater events for debugging
+autoUpdater.on('checking-for-update', () => {
+  console.log('🔍 Checking for updates...');
+});
+
 autoUpdater.on('update-available', (info) => {
-  console.log('Update available:', info.version);
+  console.log('✅ Update available:', info.version);
   if (mainWindow) {
     dialog.showMessageBox(mainWindow, {
       type: 'info',
@@ -38,8 +43,16 @@ autoUpdater.on('update-available', (info) => {
   autoUpdater.downloadUpdate();
 });
 
+autoUpdater.on('update-not-available', (info) => {
+  console.log('✅ Update not available. Current version:', info.version);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  console.log(`📥 Download progress: ${progressObj.percent.toFixed(2)}%`);
+});
+
 autoUpdater.on('update-downloaded', (info) => {
-  console.log('Update downloaded:', info.version);
+  console.log('✅ Update downloaded:', info.version);
   if (mainWindow) {
     dialog.showMessageBox(mainWindow, {
       type: 'info',
@@ -58,7 +71,8 @@ autoUpdater.on('update-downloaded', (info) => {
 });
 
 autoUpdater.on('error', (err) => {
-  console.error('Update error:', err);
+  console.error('❌ Update error:', err.message);
+  console.error('Error stack:', err.stack);
 });
 
 (async () => {
@@ -88,12 +102,23 @@ autoUpdater.on('error', (err) => {
 
   // Check for updates after app is ready (only in production)
   if (app.isPackaged) {
-    autoUpdater.checkForUpdates();
+    console.log('📦 App version:', app.getVersion());
+    console.log('🔄 Auto-update enabled. Feed URL:', autoUpdater.getFeedURL());
+
+    // Initial check
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('❌ Failed to check for updates:', err);
+    });
 
     // Check for updates every 300 seconds (5 minutes)
     setInterval(() => {
-      autoUpdater.checkForUpdates();
+      console.log('⏰ Scheduled update check...');
+      autoUpdater.checkForUpdates().catch(err => {
+        console.error('❌ Failed to check for updates:', err);
+      });
     }, 300000);
+  } else {
+    console.log('🚫 Auto-update disabled in development mode');
   }
 })();
 
