@@ -6,12 +6,23 @@ directories:
   output: dist
 
 extraMetadata:
-  main: ./electron/main.js
+  main: ./dist/main.cjs
 
 files:
-  - electron/**/*
+  - dist/main.cjs
+  - dist/preload.cjs
   - out/**/*
   - package.json
+  - "!dist/electron"
+  - "!dist/mac*"
+  - "!dist/win*"
+  - "!dist/linux*"
+  - "!dist/*.dmg"
+  - "!dist/*.exe"
+  - "!dist/*.deb"
+  - "!dist/*.yml"
+  - "!dist/*.yaml"
+  - "!dist/*.blockmap"
 
 compression: maximum
 asar: true
