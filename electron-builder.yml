@@ -1,0 +1,95 @@
+appId: com.eq-rts-map
+productName: eq-rts-map
+copyright: Copyright © 2025 ExpTech Studio
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - electron/**/*
+  - out/**/*
+  - package.json
+  # 只包含必要的 node_modules
+  - node_modules/electron-updater/**/*
+  - node_modules/builder-util-runtime/**/*
+  - node_modules/fs-extra/**/*
+  - node_modules/js-yaml/**/*
+  - node_modules/lazy-val/**/*
+  - node_modules/semver/**/*
+  - node_modules/lodash.escaperegexp/**/*
+  - node_modules/lodash.isequal/**/*
+  - node_modules/tiny-typed-emitter/**/*
+  - node_modules/jsonfile/**/*
+  - node_modules/universalify/**/*
+  - node_modules/argparse/**/*
+  - node_modules/graceful-fs/**/*
+  # 排除不必要的檔案
+  - "!**/node_modules/**/{test,__tests__,tests,example,examples,docs,*.md,*.d.ts,.bin}"
+  - "!**/{.DS_Store,.git,.gitignore,.editorconfig,*.log,*.tmp}"
+
+extraResources:
+  - from: public/audios
+    to: audios
+
+# 簡化的優化配置
+compression: maximum
+removePackageScripts: true
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+npmRebuild: false
+asar: true
+
+# macOS 配置 - 只打包當前架構以提升速度
+mac:
+  target:
+    - target: default
+      arch: [arm64] # 只打包 ARM64，移除 x64 以提升速度
+  category: public.app-category.utilities
+  minimumSystemVersion: "10.13"
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  icon: resources/icons/app.icns
+
+# DMG 配置 - 簡化
+dmg:
+  writeUpdateInfo: false
+  sign: false
+
+# Windows 配置 - 只打包 x64
+win:
+  target:
+    - target: nsis
+      arch: [x64] # 只打包 x64，移除 ia32 以提升速度
+  artifactName: "${productName}_${version}_${arch}.${ext}"
+  verifyUpdateCodeSignature: false
+  icon: resources/icons/app.ico
+
+# NSIS 配置 - 簡化
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  artifactName: "${productName}_${version}_${arch}-setup.${ext}"
+  unicode: true
+
+# Linux 配置 - 只打包 x64
+linux:
+  target:
+    - target: AppImage
+      arch: [x64] # 只打包 x64，移除 arm64 以提升速度
+  category: Utility
+  artifactName: "${productName}_${version}_${arch}.${ext}"
+  executableName: eq-rts-map
+  synopsis: EQ RTS MAP - ExpTech Studio
+  description: Earthquake Real-Time Seismic Map
+  icon: resources/icons
+
+# 發布配置
+publish:
+  - provider: github
+    owner: ExpTechTW
+    repo: eq-rts-map
+    releaseType: draft

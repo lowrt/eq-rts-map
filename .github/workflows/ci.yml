@@ -15,33 +15,16 @@ jobs:
       matrix:
         include:
           - platform: "macos-latest"
-            args: "--target universal-apple-darwin"
+            build_script: "electron:build:mac"
           - platform: "windows-latest"
-            args: ""
+            build_script: "electron:build:win"
           - platform: "ubuntu-22.04"
-            args: ""
+            build_script: "electron:build:linux"
 
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: Install dependencies (macOS)
-        if: matrix.platform == 'macos-latest'
-        run: |
-          rustup target add aarch64-apple-darwin x86_64-apple-darwin
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
-          # Include platform-specific cache key
-          key: ${{ matrix.platform }}-${{ matrix.args }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -61,9 +44,6 @@ jobs:
       - name: Install frontend dependencies
         run: bun install
 
-      - name: Build frontend
-        run: bun run build
-
       - name: Import Code-Signing Certificates (macOS)
         if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
         env:
@@ -77,28 +57,17 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+          sudo apt-get install -y rpm
 
-      - name: Build Tauri app (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Build Electron app
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: xvfb-run --auto-servernum bun tauri build --bundles appimage
-
-      - name: Build Tauri app (macOS/Windows)
-        if: matrix.platform != 'ubuntu-22.04'
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bun tauri build ${{ matrix.args }}
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run ${{ matrix.build_script }}
 
       - name: Upload artifacts (macOS)
         if: matrix.platform == 'macos-latest'
@@ -106,9 +75,9 @@ jobs:
         with:
           name: macos-app
           path: |
-            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
-            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+            dist/*.dmg
+            dist/*.zip
+            dist/*.blockmap
 
       - name: Upload artifacts (Windows)
         if: matrix.platform == 'windows-latest'
@@ -116,9 +85,8 @@ jobs:
         with:
           name: windows-app
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/nsis/*.nsis.zip
-            src-tauri/target/release/bundle/nsis/*.nsis.zip.sig
+            dist/*.exe
+            dist/*.blockmap
 
       - name: Upload artifacts (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -126,6 +94,5 @@ jobs:
         with:
           name: linux-app
           path: |
-            src-tauri/target/release/bundle/appimage/*.AppImage
-            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz
-            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig
+            dist/*.AppImage
+            dist/*.blockmap

@@ -10,16 +10,9 @@ const AlertManager = React.memo(() => {
   useEffect(() => {
     audioRef.current = new Audio('/audios/alarm.wav');
 
-    const enableAutostart = async () => {
-      try {
-        const { enable } = await import('@tauri-apps/plugin-autostart');
-        await enable();
-      } catch (error) {
-        setHasAlert(false);
-      }
-    };
-
-    enableAutostart();
+    // Electron autostart 功能可以通過 electron-builder 的配置實現
+    // 或者在主進程中使用 app.setLoginItemSettings
+    // 這裡不需要在渲染進程中處理
   }, []);
 
   useEffect(() => {

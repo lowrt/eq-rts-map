@@ -13,10 +13,6 @@ build
 *.log
 *.tsbuildinfo
 
-# Tauri
-src-tauri/target
-src-tauri/Cargo.lock
-
 # Environment
 .env
 .env.local

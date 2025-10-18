@@ -2,30 +2,24 @@
 
 import { Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { open } from '@tauri-apps/plugin-shell';
-import { getVersion } from '@tauri-apps/api/app';
 import { useState, useEffect } from 'react';
+import { useElectronUpdater } from '@/hooks/useElectronUpdater';
 
 export default function Footer() {
+  const { currentVersion, openExternal, isElectron } = useElectronUpdater();
   const [version, setVersion] = useState('');
 
   useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const appVersion = await getVersion();
-        setVersion(`v${appVersion}`);
-      } catch (error) {
-        console.error('Failed to fetch app version:', error);
-        setVersion('v1.0.0');
-      }
-    };
-
-    fetchVersion();
-  }, []);
+    if (currentVersion) {
+      setVersion(`v${currentVersion}`);
+    } else {
+      setVersion('v1.0.0');
+    }
+  }, [currentVersion]);
 
   const handleGithubClick = async () => {
     try {
-      await open('https://github.com/ExpTechTW/eq-rts-map');
+      await openExternal('https://github.com/ExpTechTW/eq-rts-map');
     } catch (error) {
       console.error('Failed to open URL:', error);
     }
