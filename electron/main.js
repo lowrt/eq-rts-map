@@ -24,12 +24,13 @@ function createWindow() {
       enableRemoteModule: true,
       backgroundThrottling: false,
     },
+    show: false,
   });
 
   require('@electron/remote/main').initialize();
   require('@electron/remote/main').enable(mainWindow.webContents);
 
-  if (process.env.NODE_ENV === 'development') {
+  if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:3000');
   } else {
     if (appServe) {
@@ -43,22 +44,18 @@ function createWindow() {
     }
   }
 
-  // 監聽頁面載入完成
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Page loaded successfully');
+    mainWindow.show();
   });
 
-  // 監聽頁面載入失敗
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Page failed to load:', errorCode, errorDescription);
   });
 
-  // 監聽控制台訊息
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
     console.log('Console:', message);
   });
 
-  // 處理外部連結
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -69,7 +66,6 @@ function createWindow() {
   });
 }
 
-// 註冊 IPC 處理器
 function registerIPCHandlers() {
   ipcMain.handle('check-for-updates', async () => {
     if (!autoUpdater) {
@@ -123,7 +119,6 @@ function registerIPCHandlers() {
   });
 }
 
-// 初始化 autoUpdater（只在生產環境）
 function initAutoUpdater() {
   if (process.env.NODE_ENV === 'development') {
     console.log('Skipping autoUpdater in development mode');
@@ -133,11 +128,9 @@ function initAutoUpdater() {
   const { autoUpdater: updater } = require('electron-updater');
   autoUpdater = updater;
 
-  // 配置 autoUpdater
-  autoUpdater.autoDownload = false;
+  autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  // 設置事件監聽器
   autoUpdater.on('checking-for-update', () => {
     console.log('Checking for update...');
     if (mainWindow) {
@@ -181,20 +174,16 @@ function initAutoUpdater() {
     }
   });
 
-  // 延遲 3 秒後檢查更新
   setTimeout(() => {
     autoUpdater.checkForUpdates();
   }, 3000);
 
-  // 每 4 小時檢查一次更新
   setInterval(() => {
     autoUpdater.checkForUpdates();
   }, 4 * 60 * 60 * 1000);
 }
 
-// App 生命週期
 app.whenReady().then(() => {
-  // 設置開機自啟動
   app.setLoginItemSettings({
     openAtLogin: true,
     openAsHidden: false,
@@ -217,7 +206,6 @@ app.on('window-all-closed', () => {
   }
 });
 
-// 處理第二個實例
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
