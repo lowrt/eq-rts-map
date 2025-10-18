@@ -1,17 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
-  // App version
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
-  // Auto-update methods
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.send('install-update'),
 
-  // Update event listeners
   onUpdateChecking: (callback: () => void) => ipcRenderer.on('update-checking', callback),
   onUpdateAvailable: (callback: (info: any) => void) => ipcRenderer.on('update-available', (_event, info) => callback(info)),
   onUpdateNotAvailable: (callback: (info: any) => void) => ipcRenderer.on('update-not-available', (_event, info) => callback(info)),
@@ -27,9 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('update-downloaded');
   },
 
-  // External links
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 
-  // Audio paths
   getAudioPath: (audioFile: string) => ipcRenderer.invoke('get-audio-path', audioFile),
 });

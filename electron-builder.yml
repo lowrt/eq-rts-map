@@ -33,6 +33,8 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  allowElevation: true
+  createStartMenuShortcut: true
 
 mac:
   category: public.app-category.productivity

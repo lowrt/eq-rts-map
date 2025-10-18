@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import serve from 'electron-serve';
 import path from 'path';
@@ -9,22 +9,17 @@ const loadURL = serve({
   scheme: 'app'
 });
 
-// Get the correct preload path based on environment
-// With webpack's __dirname: false, __dirname will be the actual runtime directory
 const getPreloadPath = () => {
-  // In both dev and prod, after webpack compiles:
-  // main.cjs is in build/, preload.cjs is also in build/
-  // __dirname will point to the build directory
   return path.join(__dirname, 'preload.cjs');
 };
 
 let mainWindow: BrowserWindow | null;
 
-// Auto-updater configuration
-autoUpdater.autoDownload = true;  // 自動下載更新
-autoUpdater.autoInstallOnAppQuit = true;  // 退出時自動安裝
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.allowPrerelease = false;
+autoUpdater.allowDowngrade = false;
 
-// Configure GitHub provider with no 'v' prefix
 if (app.isPackaged) {
   autoUpdater.setFeedURL({
     provider: 'github',
@@ -34,7 +29,6 @@ if (app.isPackaged) {
   });
 }
 
-// Log auto-updater events for debugging
 autoUpdater.on('checking-for-update', () => {
   console.log('🔍 Checking for updates...');
   if (mainWindow) {
@@ -48,7 +42,6 @@ autoUpdater.on('update-available', (info) => {
   if (mainWindow) {
     mainWindow.webContents.send('update-available', info);
   }
-  // 靜默下載，不顯示彈窗
 });
 
 autoUpdater.on('update-not-available', (info) => {
@@ -67,16 +60,15 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('✅ Update downloaded:', info.version);
-  console.log('🔄 Will install update on app quit...');
+  console.log('🔄 Installing update and restarting app...');
   if (mainWindow) {
     mainWindow.webContents.send('update-downloaded', info);
   }
 
-  // 靜默安裝：5秒後自動重啟
   setTimeout(() => {
-    console.log('🔄 Restarting app to install update...');
-    autoUpdater.quitAndInstall(false, true);
-  }, 5000);
+    console.log('🔄 Quitting and installing update...');
+    autoUpdater.quitAndInstall(true, true);
+  }, 3000);
 });
 
 autoUpdater.on('error', (err) => {
@@ -90,7 +82,6 @@ autoUpdater.on('error', (err) => {
 (async () => {
   await app.whenReady();
 
-  // Register IPC handlers
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
   });
@@ -128,10 +119,8 @@ autoUpdater.on('error', (err) => {
 
   ipcMain.handle('get-audio-path', async (_event, audioFile: string) => {
     if (isProd) {
-      // In production, audio files are in the resources folder
       return path.join(process.resourcesPath, 'audios', audioFile);
     } else {
-      // In development, audio files are in public/audios
       return path.join(app.getAppPath(), 'public', 'audios', audioFile);
     }
   });
@@ -147,26 +136,20 @@ autoUpdater.on('error', (err) => {
   });
 
   if (isProd) {
-    // Production: load from out directory, directly to /home
     await loadURL(mainWindow);
-    // Navigate to /home after loading
     await mainWindow.loadURL('app://-/home.html');
   } else {
-    // Development: load from Next.js dev server
     await mainWindow.loadURL('http://localhost:3000/home');
   }
 
-  // Check for updates after app is ready (only in production)
   if (app.isPackaged) {
     console.log('📦 App version:', app.getVersion());
     console.log('🔄 Auto-update enabled. Feed URL:', autoUpdater.getFeedURL());
 
-    // Initial check
     autoUpdater.checkForUpdates().catch(err => {
       console.error('❌ Failed to check for updates:', err);
     });
 
-    // Check for updates every 300 seconds (5 minutes)
     setInterval(() => {
       console.log('⏰ Scheduled update check...');
       autoUpdater.checkForUpdates().catch(err => {
