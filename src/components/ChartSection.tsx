@@ -41,8 +41,8 @@ const generateColorFromId = (id: number): string => {
   hash = Math.abs(hash);
 
   const hue = hash % 360;
-  const saturation = 85 + (hash % 15); // 提高飽和度：85-100%
-  const lightness = 50 + (hash % 10); // 降低亮度：50-60%
+  const saturation = 85 + (hash % 15);
+  const lightness = 50 + (hash % 10);
 
   const h = hue / 360;
   const s = saturation / 100;
@@ -202,7 +202,6 @@ const ChartSection = React.memo(() => {
   const timeLabels = useMemo(() => generateTimeLabels(CHART_LENGTH, 50), []);
 
   const chartData = useMemo(() => {
-    // 先準備所有 channel 的資料
     const channelDataArrays: Array<{index: number, data: (number | null)[]}> = [];
 
     CHANNEL_CONFIGS.forEach((config, index) => {
@@ -252,7 +251,6 @@ const ChartSection = React.memo(() => {
       channelDataArrays.push({ index, data });
     });
 
-    // 計算每個 channel 在圖表上的最大偏離值（絕對值）
     const channelMaxValues: { index: number; maxAbsDeviation: number }[] = [];
 
     channelDataArrays.forEach(({index, data}) => {
@@ -261,7 +259,6 @@ const ChartSection = React.memo(() => {
 
       data.forEach(value => {
         if (value !== null) {
-          // 計算偏離 baseline 的絕對值
           const deviation = Math.abs(value - config.baseline);
           maxAbsDeviation = Math.max(maxAbsDeviation, deviation);
         }
@@ -270,27 +267,20 @@ const ChartSection = React.memo(() => {
       channelMaxValues.push({ index, maxAbsDeviation });
     });
 
-    // 按最大偏離值排序，值越小的 z-index 越高（order 越小）
     channelMaxValues.sort((a, b) => a.maxAbsDeviation - b.maxAbsDeviation);
 
-    // 建立 index -> order 的映射
     const indexToOrder: Record<number, number> = {};
     channelMaxValues.forEach((item, order) => {
       indexToOrder[item.index] = order;
     });
 
-    console.log('Channel z-index 順序:', channelMaxValues.map(c => `Ch${c.index}: ${c.maxAbsDeviation.toFixed(2)}`));
-
     const datasets: any[] = [];
 
-    // 使用已經計算好的資料
     channelDataArrays.forEach(({index, data}) => {
       const config = CHANNEL_CONFIGS[index];
 
-      // 根據 order 設定 z-index
-      // Chart.js 的 order 值越小越在上層，所以振幅小的 order 要小
-      const orderRank = indexToOrder[index] || 0; // 0 = 振幅最小，4 = 振幅最大
-      const baseOrder = orderRank * 2; // 振幅小的 order 小，會在上層
+      const orderRank = indexToOrder[index] || 0;
+      const baseOrder = orderRank * 2;
 
       datasets.push({
         label: `Station ${STATION_IDS[index] || index} (White)`,
@@ -302,7 +292,7 @@ const ChartSection = React.memo(() => {
         tension: 0,
         fill: false,
         spanGaps: false,
-        order: baseOrder, // 白線
+        order: baseOrder,
       });
 
       datasets.push({
@@ -315,7 +305,7 @@ const ChartSection = React.memo(() => {
         tension: 0,
         fill: false,
         spanGaps: false,
-        order: baseOrder, // 彩色線與白線同層（彩色線會因為後加入而在上面）
+        order: baseOrder,
       });
     });
 

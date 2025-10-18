@@ -18,7 +18,6 @@ export function RTSProvider({ children }: { children: React.ReactNode }) {
   const isFetchingRef = useRef<boolean>(false);
 
   const fetchData = async () => {
-    // 防止重複呼叫
     if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;

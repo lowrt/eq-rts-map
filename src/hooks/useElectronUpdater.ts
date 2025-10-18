@@ -52,10 +52,8 @@ export function useElectronUpdater() {
 
     const electronAPI = window.electronAPI!;
 
-    // 獲取當前版本
     electronAPI.getAppVersion().then(setCurrentVersion);
 
-    // 註冊事件監聽器
     electronAPI.onUpdateChecking(() => {
       setChecking(true);
       setError(null);
@@ -88,7 +86,6 @@ export function useElectronUpdater() {
       setUpdateInfo(info);
     });
 
-    // 清理監聽器
     return () => {
       electronAPI.removeUpdateListeners();
     };
