@@ -8,15 +8,15 @@ directories:
 
 files:
   - electron/**/*
-  - out/**/*
+  - dist/**/*
+  - node_modules/**/*
   - package.json
-  # 排除不必要的檔案
-  - "!**/node_modules/**/{test,__tests__,tests,example,examples,docs,*.md,*.d.ts,.bin}"
-  - "!**/{.DS_Store,.git,.gitignore,.editorconfig,*.log,*.tmp}"
+
+extraMetadata:
+  main: ./electron/main.js
 
 extraResources:
-  - from: public/audios
-    to: audios
+  - assets/**/*
 
 compression: maximum
 asar: true
@@ -28,11 +28,11 @@ win:
       arch:
         - x64
         - ia32
-  icon: ./public/icons/app.ico
+  icon: ./assets/icons/app.ico
 
 mac:
   category: public.app-category.productivity
-  icon: ./public/icons/app.png
+  icon: ./assets/icons/app.png
   hardenedRuntime: true
   target:
     - target: dmg
@@ -40,12 +40,12 @@ mac:
         - x64
         - arm64
   gatekeeperAssess: false
-  entitlements: entitlements.mac.plist
-  entitlementsInherit: entitlements.mac.plist
+  entitlements: ./assets/entitlements.mac.plist
+  entitlementsInherit: ./assets/entitlements.mac.plist
 
 linux:
   category: Development
-  icon: ./public/icons/app.png
+  icon: ./assets/icons/app.png
   target:
     - target: deb
       arch:
