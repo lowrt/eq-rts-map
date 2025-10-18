@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Footer from '@/components/footer';
-import '@/i18n'
 
 export const metadata: Metadata = {
   title: 'EQ RTS MAP',

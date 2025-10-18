@@ -1,14 +1,22 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const serve = require('electron-serve');
 
 let mainWindow;
 let updateInfo = null;
 let autoUpdater = null;
 
-const appServe = app.isPackaged
-  ? serve({ directory: path.join(__dirname, '../out') })
-  : null;
+// 動態導入 electron-serve，避免在開發環境中的問題
+let serve = null;
+let appServe = null;
+
+if (app.isPackaged) {
+  try {
+    serve = require('electron-serve');
+    appServe = serve({ directory: path.join(__dirname, '../out') });
+  } catch (error) {
+    console.error('Failed to load electron-serve:', error);
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -19,7 +27,7 @@ function createWindow() {
     title: 'EQ RTS MAP - ExpTech Studio',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: false,
+      contextIsolation: true,
       nodeIntegration: true,
       enableRemoteModule: true,
       backgroundThrottling: false,
@@ -38,9 +46,13 @@ function createWindow() {
         mainWindow.loadURL('app://-');
       }).catch(err => {
         console.error('Failed to load with electron-serve:', err);
+        // 備用方案：直接載入文件
+        mainWindow.loadFile(path.join(__dirname, '../out/index.html'));
       });
     } else {
-      console.error('appServe not available');
+      console.error('appServe not available, using fallback');
+      // 備用方案：直接載入文件
+      mainWindow.loadFile(path.join(__dirname, '../out/index.html'));
     }
   }
 
