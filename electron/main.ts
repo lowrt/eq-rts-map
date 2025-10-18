@@ -2,23 +2,20 @@ import { app, BrowserWindow, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import serve from 'electron-serve';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const isProd = app.isPackaged;
-const loadURL = serve({ directory: 'out' });
+const loadURL = serve({
+  directory: 'out',
+  scheme: 'app'
+});
 
 // Get the correct preload path based on environment
+// With webpack's __dirname: false, __dirname will be the actual runtime directory
 const getPreloadPath = () => {
-  if (isProd) {
-    // Production: preload.cjs is in the same directory as main.cjs
-    return path.join(__dirname, 'preload.cjs');
-  } else {
-    // Development: preload.cjs is in the build directory
-    return path.join(process.cwd(), 'build', 'preload.cjs');
-  }
+  // In both dev and prod, after webpack compiles:
+  // main.cjs is in build/, preload.cjs is also in build/
+  // __dirname will point to the build directory
+  return path.join(__dirname, 'preload.cjs');
 };
 
 let mainWindow: BrowserWindow | null;
@@ -78,11 +75,13 @@ autoUpdater.on('error', (err) => {
   });
 
   if (isProd) {
-    // Production: load from out directory
+    // Production: load from out directory, directly to /home
     await loadURL(mainWindow);
+    // Navigate to /home after loading
+    await mainWindow.loadURL('app://-/home.html');
   } else {
     // Development: load from Next.js dev server
-    await mainWindow.loadURL('http://localhost:3000');
+    await mainWindow.loadURL('http://localhost:3000/home');
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   }
@@ -118,8 +117,9 @@ app.on('activate', async () => {
 
     if (isProd) {
       await loadURL(mainWindow);
+      await mainWindow.loadURL('app://-/home.html');
     } else {
-      await mainWindow.loadURL('http://localhost:3000');
+      await mainWindow.loadURL('http://localhost:3000/home');
     }
   }
 });
