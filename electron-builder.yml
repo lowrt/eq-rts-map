@@ -32,7 +32,6 @@ extraResources:
   - from: public/audios
     to: audios
 
-# 簡化的優化配置
 compression: maximum
 removePackageScripts: true
 nodeGypRebuild: false
@@ -40,32 +39,24 @@ buildDependenciesFromSource: false
 npmRebuild: false
 asar: true
 
-# macOS 配置 - 只打包當前架構以提升速度
 mac:
   target:
     - target: default
-      arch: [arm64] # 只打包 ARM64，移除 x64 以提升速度
+      arch: [arm64, x64]
   category: public.app-category.utilities
   minimumSystemVersion: "10.13"
   hardenedRuntime: true
   gatekeeperAssess: false
   icon: resources/icons/app.icns
 
-# DMG 配置 - 簡化
-dmg:
-  writeUpdateInfo: false
-  sign: false
-
-# Windows 配置 - 只打包 x64
 win:
   target:
     - target: nsis
-      arch: [x64] # 只打包 x64，移除 ia32 以提升速度
+      arch: [x64, ia32, arm64]
   artifactName: "${productName}_${version}_${arch}.${ext}"
   verifyUpdateCodeSignature: false
   icon: resources/icons/app.ico
 
-# NSIS 配置 - 簡化
 nsis:
   oneClick: false
   perMachine: false
@@ -75,11 +66,10 @@ nsis:
   artifactName: "${productName}_${version}_${arch}-setup.${ext}"
   unicode: true
 
-# Linux 配置 - 只打包 x64
 linux:
   target:
     - target: AppImage
-      arch: [x64] # 只打包 x64，移除 arm64 以提升速度
+      arch: [x64, arm64]
   category: Utility
   artifactName: "${productName}_${version}_${arch}.${ext}"
   executableName: eq-rts-map
@@ -87,7 +77,6 @@ linux:
   description: Earthquake Real-Time Seismic Map
   icon: resources/icons
 
-# 發布配置
 publish:
   - provider: github
     owner: ExpTechTW

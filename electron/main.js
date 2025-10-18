@@ -1,10 +1,14 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const fs = require('fs');
+const serve = require('electron-serve');
 
 let mainWindow;
 let updateInfo = null;
 let autoUpdater = null;
+
+const appServe = app.isPackaged
+  ? serve({ directory: path.join(__dirname, '../out') })
+  : null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -15,38 +19,28 @@ function createWindow() {
     title: 'EQ RTS MAP - ExpTech Studio',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false, // 暫時禁用 webSecurity 以解決資源載入問題
-      allowRunningInsecureContent: true,
+      contextIsolation: false,
+      nodeIntegration: true,
+      enableRemoteModule: true,
+      backgroundThrottling: false,
     },
   });
 
-  // 開發模式載入 Next.js dev server，生產模式載入靜態文件
+  require('@electron/remote/main').initialize();
+  require('@electron/remote/main').enable(mainWindow.webContents);
+
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:3000');
-    mainWindow.webContents.openDevTools();
   } else {
-    // 在生產環境中，使用 file:// 協議載入檔案
-    const indexPath = path.join(__dirname, 'out/index.html');
-    const fileUrl = `file://${indexPath}`;
-    console.log('Loading URL:', fileUrl);
-    console.log('File exists:', fs.existsSync(indexPath));
-    
-    // 檢查檔案是否存在
-    if (!fs.existsSync(indexPath)) {
-      console.error('Index file not found at:', indexPath);
-      console.log('Available files in app directory:');
-      const appDir = path.join(__dirname);
-      if (fs.existsSync(appDir)) {
-        console.log(fs.readdirSync(appDir));
-      }
-      return;
+    if (appServe) {
+      appServe(mainWindow).then(() => {
+        mainWindow.loadURL('app://-');
+      }).catch(err => {
+        console.error('Failed to load with electron-serve:', err);
+      });
+    } else {
+      console.error('appServe not available');
     }
-
-    mainWindow.loadURL(fileUrl).catch(err => {
-      console.error('Failed to load URL:', err);
-    });
   }
 
   // 監聽頁面載入完成
