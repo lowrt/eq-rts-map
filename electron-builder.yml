@@ -4,19 +4,14 @@ copyright: Copyright © 2025 ExpTech Studio
 
 directories:
   output: dist
-  buildResources: resources
-
-files:
-  - electron/**/*
-  - dist/**/*
-  - node_modules/**/*
-  - package.json
 
 extraMetadata:
   main: ./electron/main.js
 
-extraResources:
-  - assets/**/*
+files:
+  - electron/**/*
+  - out/**/*
+  - package.json
 
 compression: maximum
 asar: true
@@ -37,7 +32,7 @@ mac:
   target:
     - target: dmg
       arch:
-        - x64
+        # - x64
         - arm64
   gatekeeperAssess: false
   entitlements: ./assets/entitlements.mac.plist
