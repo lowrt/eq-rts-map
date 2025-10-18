@@ -24,7 +24,7 @@ export interface RTSResponse {
   box: Record<string, any>;
 }
 
-export let REPLAY_TIME = 0;
+export let REPLAY_TIME = 1759881140;
 
 export interface StationFeature {
   type: 'Feature';
@@ -173,7 +173,7 @@ export function createStationGeoJSON(
         intensity,
         color,
         sortKey: intensity,
-        hasAlert: rts.alert !== undefined,
+        hasAlert: intensity > 0,
         pga: rts.pga || 0,
       },
     });

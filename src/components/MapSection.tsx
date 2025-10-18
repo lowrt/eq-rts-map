@@ -5,6 +5,7 @@ import Map, { NavigationControl, Source, Layer, type MapRef } from 'react-map-gl
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { type StationGeoJSON } from '@/lib/rts';
 import { useRTS } from '@/contexts/RTSContext';
+import regionData from '@/../public/data/region.json';
 
 const CORNER_TOOLTIP_POSITIONS = [
   { id: 'top-left', position: [119.7, 25.4] as [number, number] },
@@ -30,6 +31,18 @@ interface AlertTooltip {
   cornerId: string;
   isActive: boolean;
 }
+
+const getRegionName = (code: string): string => {
+  const codeNum = parseInt(code);
+  for (const [city, towns] of Object.entries(regionData)) {
+    for (const [town, info] of Object.entries(towns as Record<string, any>)) {
+      if (info.code === codeNum) {
+        return `${city}${town}`;
+      }
+    }
+  }
+  return code;
+};
 
 const MapSection = React.memo(() => {
   const { data: rtsData } = useRTS();
@@ -595,16 +608,16 @@ const MapSection = React.memo(() => {
               top: tooltipTop,
             }}
           >
-            <div className="bg-gradient-to-br from-slate-900/98 to-gray-800/98 backdrop-blur-lg rounded-md p-2 border border-white/30 min-w-[90px] shadow-lg">
-              <div className="flex items-center justify-center mb-1.5">
+            <div className="bg-gradient-to-br from-slate-900/98 to-gray-800/98 backdrop-blur-lg rounded-[5px] p-2 border border-white/30 min-w-[90px] shadow-lg flex flex-col justify-center items-start">
+              <div className="mb-1.5 flex items-center">
                 <div className="text-white text-xs font-medium">
-                  {tooltip.stationCode}
+                  {getRegionName(tooltip.stationCode)}
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-1 mb-1.5">
                 <div className="text-white/70 text-xs">震度</div>
-                <div 
+                <div
                   className="rounded px-1.5 py-0.5 text-xs font-bold"
                   style={{
                     backgroundColor: INTENSITY_COLORS[intensity_float_to_int(tooltip.intensity) as keyof typeof INTENSITY_COLORS],
@@ -614,7 +627,6 @@ const MapSection = React.memo(() => {
                   {intensity_list[intensity_float_to_int(tooltip.intensity)]}
                 </div>
               </div>
-              
             </div>
           </div>
         );
