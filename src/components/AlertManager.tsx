@@ -9,10 +9,6 @@ const AlertManager = React.memo(() => {
 
   useEffect(() => {
     audioRef.current = new Audio('/audios/alarm.wav');
-
-    // Electron autostart 功能可以通過 electron-builder 的配置實現
-    // 或者在主進程中使用 app.setLoginItemSettings
-    // 這裡不需要在渲染進程中處理
   }, []);
 
   useEffect(() => {
