@@ -173,7 +173,7 @@ export function createStationGeoJSON(
         intensity,
         color,
         sortKey: intensity,
-        hasAlert: intensity > 0,
+        hasAlert: rts.alert !== undefined,
         pga: rts.pga || 0,
       },
     });

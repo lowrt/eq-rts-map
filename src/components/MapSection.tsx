@@ -470,7 +470,7 @@ const MapSection = React.memo(() => {
 
     const alertStations: AlertTooltip[] = [];
     data.geojson.features.forEach((feature) => {
-      if (feature.properties.intensity > 0) {
+      if (feature.properties.hasAlert) {
         alertStations.push({
           stationId: feature.properties.id,
           stationCode: feature.properties.code,
@@ -495,12 +495,6 @@ const MapSection = React.memo(() => {
 
     const positionedTooltips = assignTooltipPositions(allAlertStations);
     setAlertTooltips(positionedTooltips);
-
-    console.log('重新分配 Tooltip 位置:', {
-      switchIndex: tooltipSwitchIndexRef.current,
-      alertStationsCount: allAlertStations.length,
-      positionedCount: positionedTooltips.length
-    });
   }, [tooltipSwitchIndex]); 
 
   useEffect(() => {
@@ -512,11 +506,6 @@ const MapSection = React.memo(() => {
     const currentPositions = alertTooltips.length > 0 ? alertTooltips : assignTooltipPositions(allAlertStations);
     const updatedTooltips = updateTooltipData(currentPositions, allAlertStations);
     setCurrentTooltipData(updatedTooltips);
-
-    console.log('更新 Tooltip 資料:', {
-      alertStationsCount: allAlertStations.length,
-      tooltipIds: updatedTooltips.map(t => t.stationId)
-    });
   }, [allAlertStations, alertTooltips]);
 
   useEffect(() => {
