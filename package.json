@@ -2,15 +2,7 @@
   "name": "eq-rts-map",
   "version": "1.0.0-beta.2",
   "description": "EQ RTS Map",
-  "author": "ExpTech Studio",
-  "homepage": "https://github.com/ExpTechStudio/eq-rts-map",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ExpTechStudio/eq-rts-map.git"
-  },
-  "bugs": {
-    "url": "https://github.com/ExpTechStudio/eq-rts-map/issues"
-  },
+  "author": "ExpTech Studio <ExpTech.tw@gmail.com>",
   "type": "module",
   "main": "build/main.cjs",
   "private": true,
