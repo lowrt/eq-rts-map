@@ -24,7 +24,7 @@ export interface RTSResponse {
   box: Record<string, any>;
 }
 
-export let REPLAY_TIME = 1759881140;
+export let REPLAY_TIME = 0;
 
 export interface StationFeature {
   type: 'Feature';
