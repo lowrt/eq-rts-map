@@ -26,11 +26,11 @@ win:
       arch:
         - x64
         - ia32
-  icon: ./assets/icons/app.ico
+  icon: ./public/icons/app.ico
 
 mac:
   category: public.app-category.productivity
-  icon: ./assets/icons/app.png
+  icon: ./public/icons/app.png
   hardenedRuntime: true
   target:
     - target: dmg
@@ -43,7 +43,7 @@ mac:
 
 linux:
   category: Development
-  icon: ./assets/icons/app.png
+  icon: ./public/icons/app.png
   target:
     - target: AppImage
       arch:
