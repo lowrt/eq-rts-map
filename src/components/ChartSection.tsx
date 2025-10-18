@@ -115,12 +115,6 @@ const ChartSection = React.memo(() => {
   const stationConfigsRef = useRef<Record<number, { sampleRate: number; dataLength: number; scale: number }>>({});
   const chartRef = useRef<any>(null);
 
-  // 放大效果狀態 - 使用 ref 確保在 closure 中能取得最新值
-  const amplificationStateRef = useRef<{
-    channelIndex: number | null;
-    maxMultiplier: number;
-    startTime: number;
-  } | null>(null);
 
   useEffect(() => {
     STATION_IDS.forEach((id) => {
@@ -168,7 +162,7 @@ const ChartSection = React.memo(() => {
         setWaveformData(prev => {
           const newData: Record<number, (number | null)[]> = {};
 
-          STATION_IDS.forEach((stationId: number, channelIndex: number) => {
+          STATION_IDS.forEach((stationId: number) => {
             const config = stationConfigsRef.current[stationId];
             if (!config) {
               newData[stationId] = prev[stationId] || [];
@@ -185,42 +179,6 @@ const ChartSection = React.memo(() => {
 
               while (newStationData.length > maxLength) {
                 newStationData.shift();
-              }
-
-              // 應用放大效果到新加入的資料點
-              const ampState = amplificationStateRef.current;
-              if (ampState && ampState.channelIndex === channelIndex) {
-                const elapsed = Date.now() - ampState.startTime;
-                const duration = 5000; // 5 秒
-
-                if (elapsed <= duration) {
-                  const totalPoints = 50 * 5; // 250 點
-                  const dataLength = newStationData.length;
-
-                  // 計算新加入的資料範圍（bufferData 的長度）
-                  const newDataCount = bufferData.length;
-                  const startIdx = dataLength - newDataCount; // 新資料的起始索引
-
-                  console.log(`應用放大效果 - Channel ${channelIndex}, 新資料數: ${newDataCount}, 倍數: ${ampState.maxMultiplier.toFixed(2)}`);
-
-                  // 只對新加入的資料點進行放大
-                  for (let i = startIdx; i < dataLength; i++) {
-                    const value = newStationData[i];
-                    if (value === null) continue;
-
-                    // 從陣列末端算起的位置（0 = 最新）
-                    const positionFromEnd = dataLength - 1 - i;
-
-                    // 只對最近 250 個點進行放大
-                    if (positionFromEnd >= 0 && positionFromEnd < totalPoints) {
-                      // 線性衰減：最新的資料（positionFromEnd = 0）倍數最大
-                      const progress = positionFromEnd / (totalPoints - 1);
-                      const multiplier = ampState.maxMultiplier - (ampState.maxMultiplier - 1) * progress;
-
-                      newStationData[i] = value * multiplier;
-                    }
-                  }
-                }
               }
 
               newData[stationId] = newStationData;
@@ -240,29 +198,6 @@ const ChartSection = React.memo(() => {
     };
   }, []);
 
-  // 每 5 秒隨機選擇一個 channel 進行放大
-  useEffect(() => {
-    const startAmplification = () => {
-      const randomChannelIndex = Math.floor(Math.random() * NUM_CHANNELS);
-      const randomMultiplier = Math.random() * 50; // 0-10 倍
-
-      amplificationStateRef.current = {
-        channelIndex: randomChannelIndex,
-        maxMultiplier: randomMultiplier,
-        startTime: Date.now(),
-      };
-
-      console.log(`放大效果開始 - Channel ${randomChannelIndex}, 倍數: ${randomMultiplier.toFixed(2)}`);
-    };
-
-    // 立即執行一次
-    startAmplification();
-
-    // 每 5 秒執行一次
-    const amplificationInterval = setInterval(startAmplification, 5000);
-
-    return () => clearInterval(amplificationInterval);
-  }, []);
 
   const timeLabels = useMemo(() => generateTimeLabels(CHART_LENGTH, 50), []);
 
