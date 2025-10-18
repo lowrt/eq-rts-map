@@ -36,8 +36,11 @@ let isQuitting = false;
 
 const createMainWindow = async (): Promise<BrowserWindow> => {
   const window = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 840,
+    height: 630,
+    maximizable: false,
+    resizable: false,
+    fullscreenable: false,
     show: false,
     webPreferences: {
       nodeIntegration: false,
