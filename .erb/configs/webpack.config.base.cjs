@@ -26,7 +26,7 @@ const configuration = {
   },
 
   output: {
-    path: path.join(rootPath, 'dist'),
+    path: path.join(rootPath, 'build'),
     library: {
       type: 'commonjs2',
     },

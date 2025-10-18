@@ -21,7 +21,6 @@ const configuration = {
   },
 
   output: {
-    path: path.join(rootPath, 'dist'),
     filename: '[name].cjs',
     library: {
       type: 'commonjs2',

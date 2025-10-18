@@ -12,11 +12,11 @@
     "url": "https://github.com/ExpTechStudio/eq-rts-map/issues"
   },
   "type": "module",
-  "main": "dist/main.cjs",
+  "main": "build/main.cjs",
   "private": true,
   "license": "AGPL-3.0",
   "scripts": {
-    "dev": "concurrently \"next dev\" \"npm run build:electron:dev\" \"wait-on http://localhost:3000 dist/main.cjs && electronmon --inspect=5858 .\"",
+    "dev": "concurrently \"next dev\" \"npm run build:electron:dev\" \"wait-on http://localhost:3000 build/main.cjs && electronmon --inspect=5858 .\"",
     "build:electron:dev": "cross-env NODE_ENV=development webpack --config .erb/configs/webpack.config.main.dev.cjs --watch",
     "build:electron:prod": "cross-env NODE_ENV=production webpack --config .erb/configs/webpack.config.main.prod.cjs",
     "electron": "electron .",

@@ -6,29 +6,19 @@ directories:
   output: dist
 
 extraMetadata:
-  main: ./dist/main.cjs
+  main: ./build/main.cjs
 
 files:
-  - dist/main.cjs
-  - dist/preload.cjs
+  - build/**/*
   - out/**/*
-  - package.json
-  - "!dist/electron"
-  - "!dist/mac*"
-  - "!dist/win*"
-  - "!dist/linux*"
-  - "!dist/*.dmg"
-  - "!dist/*.exe"
-  - "!dist/*.deb"
-  - "!dist/*.yml"
-  - "!dist/*.yaml"
-  - "!dist/*.blockmap"
 
 compression: maximum
 asar: true
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 win:
+  electronLanguages:
+    - en
   target:
     - target: nsis
       arch:
@@ -40,10 +30,11 @@ mac:
   category: public.app-category.productivity
   icon: ./assets/icons/app.png
   hardenedRuntime: true
+  electronLanguages:
+    - en
   target:
     - target: dmg
       arch:
-        # - x64
         - arm64
   gatekeeperAssess: false
   entitlements: ./assets/entitlements.mac.plist
@@ -52,6 +43,8 @@ mac:
 linux:
   category: Development
   icon: ./assets/icons/app.png
+  electronLanguages:
+    - en
   target:
     - target: deb
       arch:
