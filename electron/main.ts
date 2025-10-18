@@ -182,6 +182,7 @@ app.on('activate', async () => {
     if (isProd) {
       await loadURL(mainWindow);
       await mainWindow.loadURL('app://-/home.html');
+      mainWindow.setMenu(null);
     } else {
       await mainWindow.loadURL('http://localhost:3000/home');
     }
