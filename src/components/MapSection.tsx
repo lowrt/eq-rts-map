@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { type StationGeoJSON } from '@/lib/rts';
 import { useRTS } from '@/contexts/RTSContext';
 import regionData from '@/../public/data/region.json';
+import boxData from '@/../public/data/box.json';
 
 const CORNER_TOOLTIP_POSITIONS = [
   { id: 'top-left', position: [119.7, 25.4] as [number, number] },
@@ -60,6 +61,31 @@ const MapSection = React.memo(() => {
   const sourceInitializedRef = useRef<boolean>(false);
   const isMapReadyRef = useRef<boolean>(false);
   const updateMapDataRef = useRef<any>(null);
+  const [boxVisible, setBoxVisible] = useState<boolean>(true);
+
+  const createBoxGeoJSON = useCallback(() => {
+    if (!rtsData?.box) return null;
+
+    const features = boxData.features.filter((feature: any) => {
+      const boxId = feature.properties.ID;
+      return rtsData.box[boxId] !== undefined;
+    }).map((feature: any) => {
+      const intensity = rtsData.box[feature.properties.ID];
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          intensity: intensity,
+          sortKey: intensity
+        }
+      };
+    });
+
+    return {
+      type: 'FeatureCollection',
+      features
+    };
+  }, [rtsData]);
 
   const intensity_float_to_int = (float: number): number => {
     return float < 0 ? 0 : float < 4.5 ? Math.round(float) : float < 5 ? 5 : float < 5.5 ? 6 : float < 6 ? 7 : float < 6.5 ? 8 : 9;
@@ -366,7 +392,7 @@ const MapSection = React.memo(() => {
     if (!mapRef.current || !stationData || sourceInitializedRef.current) return;
 
     const map = mapRef.current.getMap();
-    
+
     if (!map.getSource('stations')) {
       map.addSource('stations', {
         type: 'geojson',
@@ -379,6 +405,35 @@ const MapSection = React.memo(() => {
           type: 'FeatureCollection',
           features: []
         }
+      });
+
+      map.addSource('boxes', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: []
+        }
+      });
+
+      map.addLayer({
+        id: 'box-outlines',
+        type: 'line',
+        source: 'boxes',
+        layout: {
+          'line-sort-key': ['get', 'sortKey']
+        },
+        paint: {
+          'line-color': [
+            'case',
+            ['<', ['get', 'intensity'], 2],
+            '#00DB00',
+            ['<', ['get', 'intensity'], 4],
+            '#EAC100',
+            '#FF0000'
+          ],
+          'line-width': 2,
+          'line-opacity': 1,
+        },
       });
 
       map.addLayer({
@@ -417,11 +472,25 @@ const MapSection = React.memo(() => {
 
     const map = mapRef.current.getMap();
     const source = map.getSource('stations') as any;
-    
+
     if (source && source.setData) {
       source.setData(newData);
     }
   }, []);
+
+  const updateBoxData = useCallback(() => {
+    if (!mapRef.current || !sourceInitializedRef.current) return;
+
+    const map = mapRef.current.getMap();
+    const source = map.getSource('boxes') as any;
+
+    if (source && source.setData) {
+      const boxGeoJSON = createBoxGeoJSON();
+      if (boxGeoJSON) {
+        source.setData(boxGeoJSON);
+      }
+    }
+  }, [createBoxGeoJSON]);
 
   const updateTooltipLines = useCallback((tooltips: AlertTooltip[]) => {
     if (!mapRef.current || !sourceInitializedRef.current) return;
@@ -557,6 +626,31 @@ const MapSection = React.memo(() => {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBoxVisible(prev => !prev);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !sourceInitializedRef.current) return;
+
+    const map = mapRef.current.getMap();
+    const layer = map.getLayer('box-outlines');
+
+    if (layer) {
+      map.setLayoutProperty('box-outlines', 'visibility', boxVisible ? 'visible' : 'none');
+    }
+  }, [boxVisible]);
+
+  useEffect(() => {
+    if (rtsData && isMapReadyRef.current && sourceInitializedRef.current) {
+      updateBoxData();
+    }
+  }, [rtsData, updateBoxData]);
 
   return (
     <div className="w-1/2 h-full relative">
