@@ -11,14 +11,16 @@ extraMetadata:
 files:
   - build/**/*
   - out/**/*
+  - package.json
+  - "!dist"
 
 compression: maximum
 asar: true
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
+afterPack: .erb/scripts/afterPack.js
+
 win:
-  electronLanguages:
-    - en
   target:
     - target: nsis
       arch:
@@ -30,8 +32,6 @@ mac:
   category: public.app-category.productivity
   icon: ./assets/icons/app.png
   hardenedRuntime: true
-  electronLanguages:
-    - en
   target:
     - target: dmg
       arch:
@@ -43,8 +43,6 @@ mac:
 linux:
   category: Development
   icon: ./assets/icons/app.png
-  electronLanguages:
-    - en
   target:
     - target: deb
       arch:
