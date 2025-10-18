@@ -29,4 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDockBadge: (text: string) => ipcRenderer.invoke('set-dock-badge', text),
   clearDockBadge: () => ipcRenderer.invoke('clear-dock-badge'),
   bounceDock: (type?: 'critical' | 'informational') => ipcRenderer.invoke('bounce-dock', type),
+
+  quitApp: () => ipcRenderer.invoke('quit-app'),
+  showWindow: () => ipcRenderer.invoke('show-window'),
+  forceQuit: () => ipcRenderer.invoke('force-quit'),
 });

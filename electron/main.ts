@@ -25,33 +25,14 @@ const setupDock = () => {
         app.dock.setIcon(dockIcon);
       }
     } catch (error) {
-      console.warn('⚠️ Failed to set dock icon:', error);
     }
 
     app.dock.setBadge('');
-    
-    app.on('dock-click' as any, () => {
-      if (mainWindow) {
-        if (mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
-        
-        if (!mainWindow.isVisible()) {
-          mainWindow.show();
-        }
-        
-        mainWindow.focus();
-        mainWindow.moveTop();
-      } else {
-        createMainWindow().then(window => {
-          mainWindow = window;
-        });
-      }
-    });
   }
 };
 
 let mainWindow: BrowserWindow | null;
+let isQuitting = false;
 
 const createMainWindow = async (): Promise<BrowserWindow> => {
   const window = new BrowserWindow({
@@ -67,6 +48,15 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
 
   window.once('ready-to-show', () => {
     window.show();
+  });
+
+  window.on('close', (event) => {
+    if (isQuitting) {
+      return;
+    }
+    
+    event.preventDefault();
+    window.hide();
   });
 
   if (isProd) {
@@ -95,50 +85,40 @@ if (app.isPackaged) {
 }
 
 autoUpdater.on('checking-for-update', () => {
-  console.log('🔍 Checking for updates...');
   if (mainWindow) {
     mainWindow.webContents.send('update-checking');
   }
 });
 
 autoUpdater.on('update-available', (info) => {
-  console.log('✅ Update available:', info.version);
-  console.log('📥 Downloading update silently...');
   if (mainWindow) {
     mainWindow.webContents.send('update-available', info);
   }
 });
 
 autoUpdater.on('update-not-available', (info) => {
-  console.log('✅ Update not available. Current version:', info.version);
   if (mainWindow) {
     mainWindow.webContents.send('update-not-available', info);
   }
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
-  console.log(`📥 Download progress: ${progressObj.percent.toFixed(2)}%`);
   if (mainWindow) {
     mainWindow.webContents.send('update-download-progress', progressObj);
   }
 });
 
 autoUpdater.on('update-downloaded', (info) => {
-  console.log('✅ Update downloaded:', info.version);
-  console.log('🔄 Installing update and restarting app...');
   if (mainWindow) {
     mainWindow.webContents.send('update-downloaded', info);
   }
 
   setTimeout(() => {
-    console.log('🔄 Quitting and installing update...');
     autoUpdater.quitAndInstall(true, true);
   }, 3000);
 });
 
 autoUpdater.on('error', (err) => {
-  console.error('❌ Update error:', err.message);
-  console.error('Error stack:', err.stack);
   if (mainWindow) {
     mainWindow.webContents.send('update-error', err.message);
   }
@@ -216,24 +196,62 @@ autoUpdater.on('error', (err) => {
     return { success: false, error: 'Not on macOS' };
   });
 
+  ipcMain.handle('quit-app', async () => {
+    try {
+      isQuitting = true;
+      
+      BrowserWindow.getAllWindows().forEach(window => {
+        if (!window.isDestroyed()) {
+          window.removeAllListeners();
+        }
+      });
+      
+      app.quit();
+      return { success: true };
+    } catch (error: any) {
+      app.exit(0);
+      return { success: true, message: 'Force quit' };
+    }
+  });
+
+  ipcMain.handle('show-window', async () => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        
+        if (!mainWindow.isVisible()) {
+          mainWindow.show();
+        }
+        
+        mainWindow.focus();
+        mainWindow.moveTop();
+        mainWindow.setAlwaysOnTop(true);
+        
+        setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.setAlwaysOnTop(false);
+          }
+        }, 100);
+        
+        return { success: true };
+      } else {
+        mainWindow = await createMainWindow();
+        return { success: true, message: 'Window created' };
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
   mainWindow = await createMainWindow();
 
   if (app.isPackaged) {
-    console.log('📦 App version:', app.getVersion());
-    console.log('🔄 Auto-update enabled. Feed URL:', autoUpdater.getFeedURL());
-
-    autoUpdater.checkForUpdates().catch(err => {
-      console.error('❌ Failed to check for updates:', err);
-    });
-
+    autoUpdater.checkForUpdates().catch(() => {});
     setInterval(() => {
-      console.log('⏰ Scheduled update check...');
-      autoUpdater.checkForUpdates().catch(err => {
-        console.error('❌ Failed to check for updates:', err);
-      });
+      autoUpdater.checkForUpdates().catch(() => {});
     }, 300000);
-  } else {
-    console.log('🚫 Auto-update disabled in development mode');
   }
 })();
 
@@ -243,8 +261,56 @@ app.on('window-all-closed', () => {
   }
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
+app.on('will-quit', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.removeAllListeners();
+  }
+});
+
+ipcMain.handle('force-quit', async () => {
+  try {
+    isQuitting = true;
+    
+    BrowserWindow.getAllWindows().forEach(window => {
+      if (!window.isDestroyed()) {
+        window.removeAllListeners();
+        window.destroy();
+      }
+    });
+    
+    app.exit(0);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
 app.on('activate', async () => {
-  if (BrowserWindow.getAllWindows().length === 0 && mainWindow === null) {
-    mainWindow = await createMainWindow();
+  try {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = await createMainWindow();
+    } else if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+      
+      mainWindow.focus();
+      mainWindow.moveTop();
+    } else {
+      mainWindow = await createMainWindow();
+    }
+  } catch (error) {
+    try {
+      mainWindow = await createMainWindow();
+    } catch (createError) {
+    }
   }
 });

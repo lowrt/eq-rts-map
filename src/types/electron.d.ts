@@ -32,6 +32,10 @@ export interface ElectronAPI {
   setDockBadge: (text: string) => Promise<{ success: boolean; error?: string }>;
   clearDockBadge: () => Promise<{ success: boolean; error?: string }>;
   bounceDock: (type?: 'critical' | 'informational') => Promise<{ success: boolean; error?: string }>;
+
+  quitApp: () => Promise<{ success: boolean; message?: string }>;
+  showWindow: () => Promise<{ success: boolean; message?: string; error?: string }>;
+  forceQuit: () => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {
