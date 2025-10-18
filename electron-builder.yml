@@ -27,6 +27,7 @@ win:
         - x64
         - ia32
   icon: ./public/icons/app.ico
+  sign: null
 
 nsis:
   oneClick: false
