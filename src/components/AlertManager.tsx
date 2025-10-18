@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { fetchAndProcessStationData } from '@/lib/rts';
+import { useRTS } from '@/contexts/RTSContext';
 
 const AlertManager = React.memo(() => {
+  const { data } = useRTS();
   const [hasAlert, setHasAlert] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -12,21 +13,14 @@ const AlertManager = React.memo(() => {
   }, []);
 
   useEffect(() => {
-    const checkAlert = async () => {
-      try {
-        const data = await fetchAndProcessStationData();
-        const shouldAlert = data.box && Object.keys(data.box).length > 0;
-        setHasAlert(shouldAlert);
-      } catch (error) {
-        setHasAlert(false);
-      }
-    };
+    if (!data) {
+      setHasAlert(false);
+      return;
+    }
 
-    checkAlert();
-    const interval = setInterval(checkAlert, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
+    const shouldAlert = data.box && Object.keys(data.box).length > 0;
+    setHasAlert(shouldAlert);
+  }, [data]);
 
   useEffect(() => {
     if (!hasAlert) {

@@ -3,7 +3,8 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import Map, { NavigationControl, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { fetchAndProcessStationData, type StationGeoJSON } from '@/lib/rts';
+import { type StationGeoJSON } from '@/lib/rts';
+import { useRTS } from '@/contexts/RTSContext';
 
 const CORNER_TOOLTIP_POSITIONS = [
   { id: 'top-left', position: [119.7, 25.4] as [number, number] },
@@ -31,6 +32,7 @@ interface AlertTooltip {
 }
 
 const MapSection = React.memo(() => {
+  const { data: rtsData } = useRTS();
   const mapRef = useRef<MapRef>(null);
   const [stationData, setStationData] = useState<StationGeoJSON | null>(null);
   const [dataTime, setDataTime] = useState<number>(0);
@@ -38,7 +40,13 @@ const MapSection = React.memo(() => {
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [alertTooltips, setAlertTooltips] = useState<AlertTooltip[]>([]);
   const [tooltipUsage, setTooltipUsage] = useState<Record<string, boolean>>({});
+  const [tooltipSwitchIndex, setTooltipSwitchIndex] = useState<number>(0);
+  const tooltipSwitchIndexRef = useRef<number>(0);
+  const [currentTooltipData, setCurrentTooltipData] = useState<AlertTooltip[]>([]);
+  const [allAlertStations, setAllAlertStations] = useState<AlertTooltip[]>([]);
   const sourceInitializedRef = useRef<boolean>(false);
+  const isMapReadyRef = useRef<boolean>(false);
+  const updateMapDataRef = useRef<any>(null);
 
   // 震度階轉換函數
   const intensity_float_to_int = (float: number): number => {
@@ -166,6 +174,46 @@ const MapSection = React.memo(() => {
     return Math.sqrt(Math.pow(lon2 - lon1, 2) + Math.pow(lat2 - lat1, 2));
   };
 
+  // 計算線條交叉數量 - 使用真正的線段相交算法
+  const calculateCrossings = (assignments: Array<{station: AlertTooltip, corner: any}>): number => {
+    // 檢查兩條線段是否相交（使用向量叉積法）
+    const doSegmentsIntersect = (
+      p1: [number, number], p2: [number, number],
+      p3: [number, number], p4: [number, number]
+    ): boolean => {
+      const ccw = (a: [number, number], b: [number, number], c: [number, number]): number => {
+        return (c[1] - a[1]) * (b[0] - a[0]) - (b[1] - a[1]) * (c[0] - a[0]);
+      };
+
+      const d1 = ccw(p3, p4, p1);
+      const d2 = ccw(p3, p4, p2);
+      const d3 = ccw(p1, p2, p3);
+      const d4 = ccw(p1, p2, p4);
+
+      if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+          ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+        return true;
+      }
+
+      return false;
+    };
+
+    let crossings = 0;
+    for (let i = 0; i < assignments.length; i++) {
+      for (let j = i + 1; j < assignments.length; j++) {
+        const line1Start: [number, number] = assignments[i].station.coordinates;
+        const line1End: [number, number] = assignments[i].corner.position;
+        const line2Start: [number, number] = assignments[j].station.coordinates;
+        const line2End: [number, number] = assignments[j].corner.position;
+
+        if (doSegmentsIntersect(line1Start, line1End, line2Start, line2End)) {
+          crossings++;
+        }
+      }
+    }
+    return crossings;
+  };
+
   // 檢查線條是否會交叉
   const wouldCross = (station1: AlertTooltip, station2: AlertTooltip, corner1: any, corner2: any): boolean => {
     const [s1Lon, s1Lat] = station1.coordinates;
@@ -194,63 +242,163 @@ const MapSection = React.memo(() => {
     return false;
   };
 
-  // 為alert測站分配tooltip，避免線條交叉
-  const assignTooltipsToStations = (alertStations: AlertTooltip[]): AlertTooltip[] => {
-    const maxTooltips = Math.min(alertStations.length, 4);
-    const assignedTooltips: AlertTooltip[] = [];
-    const usedCorners = new Set<string>();
-    
-    // 按強度排序，優先分配給強度高的測站
+  // 選擇要顯示的測站（允許隨機偏移）
+  const selectStationsToShow = (alertStations: AlertTooltip[]): AlertTooltip[] => {
+    if (alertStations.length === 0) return [];
+
+    // 按強度排序
     const sortedStations = [...alertStations].sort((a, b) => b.intensity - a.intensity);
-    
-    for (let i = 0; i < maxTooltips; i++) {
-      const station = sortedStations[i];
-      if (!station) continue;
-      
-      // 找到最佳的tooltip分配
-      let bestCorner = null;
-      let bestScore = -Infinity;
-      
-      for (const corner of CORNER_TOOLTIP_POSITIONS) {
-        if (usedCorners.has(corner.id)) continue;
-        
-        // 計算距離分數（距離越近分數越高）
-        const distance = calculateDistance(station.coordinates, corner.position);
-        let score = 1 / (distance + 0.001); // 避免除零
-        
-        // 檢查是否會與已分配的線條交叉
-        let hasConflict = false;
-        for (const assigned of assignedTooltips) {
-          const assignedCorner = CORNER_TOOLTIP_POSITIONS.find(c => c.id === assigned.cornerId);
-          if (assignedCorner && wouldCross(station, assigned, corner, assignedCorner)) {
-            hasConflict = true;
-            break;
-          }
-        }
-        
-        // 如果有衝突，大幅降低分數
-        if (hasConflict) {
-          score *= 0.1;
-        }
-        
-        if (score > bestScore) {
-          bestScore = score;
-          bestCorner = corner;
-        }
+
+    // 1. 強度最大的測站必須顯示
+    const maxIntensityStation = sortedStations[0];
+    if (!maxIntensityStation) return [];
+
+    // 如果只有一個測站，直接返回
+    if (sortedStations.length === 1) return [maxIntensityStation];
+
+    // 2. 其餘測站按 p75, p50, p25 選擇，但允許隨機偏移
+    const remainingStations = sortedStations.slice(1);
+    const selectedStations: AlertTooltip[] = [maxIntensityStation];
+
+    // 隨機偏移範圍：±10% 的索引範圍
+    const getRandomOffset = (arrayLength: number): number => {
+      const range = Math.max(1, Math.floor(arrayLength * 0.1));
+      return Math.floor(Math.random() * (range * 2 + 1)) - range;
+    };
+
+    const percentiles = [0.75, 0.5, 0.25];
+    const usedIndices = new Set<number>();
+
+    for (const percentile of percentiles) {
+      if (selectedStations.length >= 4) break;
+
+      const baseIndex = Math.floor(remainingStations.length * percentile);
+      const offset = getRandomOffset(remainingStations.length);
+      let targetIndex = Math.max(0, Math.min(remainingStations.length - 1, baseIndex + offset));
+
+      // 如果該索引已使用，找最近的未使用索引
+      let attempts = 0;
+      while (usedIndices.has(targetIndex) && attempts < remainingStations.length) {
+        targetIndex = (targetIndex + 1) % remainingStations.length;
+        attempts++;
       }
-      
-      if (bestCorner) {
-        usedCorners.add(bestCorner.id);
-        assignedTooltips.push({
-          ...station,
-          tooltipPosition: bestCorner.position,
-          cornerId: bestCorner.id,
-          isActive: true
-        });
+
+      if (!usedIndices.has(targetIndex)) {
+        selectedStations.push(remainingStations[targetIndex]);
+        usedIndices.add(targetIndex);
       }
     }
-    
-    return assignedTooltips;
+
+    return selectedStations;
+  };
+
+  // 分配tooltip位置 - 使用最少交叉為主、最近距離為次要的算法
+  const assignTooltipPositions = (alertStations: AlertTooltip[]): AlertTooltip[] => {
+    const selectedStations = selectStationsToShow(alertStations);
+    if (selectedStations.length === 0) return [];
+
+    // 如果只有一個測站
+    if (selectedStations.length === 1) {
+      const corner = CORNER_TOOLTIP_POSITIONS[0];
+      return [{
+        ...selectedStations[0],
+        tooltipPosition: corner.position,
+        cornerId: corner.id,
+        isActive: true
+      }];
+    }
+
+    // 生成所有可能的分配組合（排列）
+    const generatePermutations = (arr: any[]): any[][] => {
+      if (arr.length <= 1) return [arr];
+      const result: any[][] = [];
+      for (let i = 0; i < arr.length; i++) {
+        const current = arr[i];
+        const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+        const remainingPerms = generatePermutations(remaining);
+        for (const perm of remainingPerms) {
+          result.push([current].concat(perm));
+        }
+      }
+      return result;
+    };
+
+    // 只考慮前 N 個位置（N = 測站數量）
+    const cornersToUse = CORNER_TOOLTIP_POSITIONS.slice(0, selectedStations.length);
+    const allCornerPermutations = generatePermutations(cornersToUse);
+
+    // 評估每種分配組合
+    interface Assignment {
+      combination: Array<{station: AlertTooltip, corner: any}>;
+      crossings: number;
+      totalDistance: number;
+    }
+
+    const assignments: Assignment[] = [];
+
+    for (const cornerPerm of allCornerPermutations) {
+      const combination = selectedStations.map((station, index) => ({
+        station,
+        corner: cornerPerm[index]
+      }));
+
+      const crossings = calculateCrossings(combination);
+
+      // 計算總距離
+      let totalDistance = 0;
+      for (const {station, corner} of combination) {
+        totalDistance += calculateDistance(station.coordinates, corner.position);
+      }
+
+      assignments.push({ combination, crossings, totalDistance });
+    }
+
+    // 排序：優先選擇交叉最少的，次要選擇距離最近的
+    assignments.sort((a, b) => {
+      if (a.crossings !== b.crossings) {
+        return a.crossings - b.crossings; // 交叉少的優先
+      }
+      return a.totalDistance - b.totalDistance; // 距離短的優先
+    });
+
+    const bestAssignment = assignments[0];
+
+    // 轉換為 AlertTooltip 格式
+    return bestAssignment.combination.map(({station, corner}) => ({
+      ...station,
+      tooltipPosition: corner.position,
+      cornerId: corner.id,
+      isActive: true
+    }));
+  };
+
+  // 更新tooltip數據（每秒執行）- 保持位置和連接的測站不變，只更新該測站的最新資料
+  const updateTooltipData = (positionedTooltips: AlertTooltip[], allStations: AlertTooltip[]): AlertTooltip[] => {
+    if (positionedTooltips.length === 0) return [];
+
+    // 建立測站 ID 到測站資料的映射
+    const stationMap: Record<string, AlertTooltip> = {};
+    allStations.forEach(station => {
+      stationMap[station.stationId] = station;
+    });
+
+    // 保持位置和連接的測站不變，只更新該測站的最新資料
+    return positionedTooltips.map((tooltip) => {
+      const latestStationData = stationMap[tooltip.stationId];
+
+      if (!latestStationData) {
+        // 如果該測站不存在了，保持原有資料
+        return tooltip;
+      }
+
+      return {
+        ...tooltip, // 保持原有的 tooltipPosition, cornerId, stationId
+        stationCode: latestStationData.stationCode,
+        intensity: latestStationData.intensity,
+        pga: latestStationData.pga,
+        coordinates: latestStationData.coordinates,
+      };
+    });
   };
 
   const initializeMapSource = useCallback(() => {
@@ -352,76 +500,128 @@ const MapSection = React.memo(() => {
     setIsMapReady(true);
   }, []);
 
+  // 更新refs
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await fetchAndProcessStationData();
-        
-        setStationData(data.geojson);
-        setDataTime(data.time);
+    isMapReadyRef.current = isMapReady;
+  }, [isMapReady]);
 
-        let max = -3;
-        data.geojson.features.forEach(feature => {
-          if (feature.properties.intensity > max) {
-            max = feature.properties.intensity;
-          }
-        });
-        setMaxIntensity(max);
+  useEffect(() => {
+    updateMapDataRef.current = updateMapData;
+  }, [updateMapData]);
 
-        // 處理 alert tooltips
-        const alertStations: AlertTooltip[] = [];
-        data.geojson.features.forEach(feature => {
-          // 檢查是否有 alert（強度大於 0 或特定條件）
-          if (feature.properties.intensity > 0) {
-            alertStations.push({
-              stationId: feature.properties.id,
-              stationCode: feature.properties.code,
-              intensity: feature.properties.intensity,
-              pga: feature.properties.pga || 0,
-              coordinates: feature.geometry.coordinates,
-              tooltipPosition: [0, 0], // 暫時位置，稍後計算
-              cornerId: '',
-              isActive: false
-            });
-          }
-        });
+  // 處理來自 Context 的資料 - 更新基本資料和 alert stations
+  useEffect(() => {
+    if (!rtsData) return;
 
-        // 分配tooltip到測站
-        const assignedTooltips = assignTooltipsToStations(alertStations);
-        setAlertTooltips(assignedTooltips);
+    const data = rtsData;
 
-        // 為正在連線的測站添加 isConnected 屬性
-        const connectedStationIds = new Set(assignedTooltips.map(t => t.stationId));
-        const updatedGeoJSON = {
-          ...data.geojson,
-          features: data.geojson.features.map(feature => ({
-            ...feature,
-            properties: {
-              ...feature.properties,
-              isConnected: connectedStationIds.has(feature.properties.id)
-            }
-          }))
-        };
+    setStationData(data.geojson);
+    setDataTime(data.time);
 
-        if (isMapReady && sourceInitializedRef.current) {
-          updateMapData(updatedGeoJSON);
-          updateTooltipLines(assignedTooltips);
-        }
-      } catch (error) {
+    let max = -3;
+    data.geojson.features.forEach((feature) => {
+      if (feature.properties.intensity > max) {
+        max = feature.properties.intensity;
       }
+    });
+    setMaxIntensity(max);
+
+    // 處理 alert tooltips
+    const alertStations: AlertTooltip[] = [];
+    data.geojson.features.forEach((feature) => {
+      // 檢查是否有 alert（強度大於 0 或特定條件）
+      if (feature.properties.intensity > 0) {
+        alertStations.push({
+          stationId: feature.properties.id,
+          stationCode: feature.properties.code,
+          intensity: feature.properties.intensity,
+          pga: feature.properties.pga || 0,
+          coordinates: feature.geometry.coordinates,
+          tooltipPosition: [0, 0], // 暫時位置，稍後計算
+          cornerId: '',
+          isActive: false
+        });
+      }
+    });
+
+    // 保存所有alert測站數據
+    setAllAlertStations(alertStations);
+  }, [rtsData]);
+
+  // 每3秒重新分配tooltip位置
+  useEffect(() => {
+    if (allAlertStations.length === 0) {
+      setAlertTooltips([]);
+      return;
+    }
+
+    const positionedTooltips = assignTooltipPositions(allAlertStations);
+    setAlertTooltips(positionedTooltips);
+
+    console.log('重新分配 Tooltip 位置:', {
+      switchIndex: tooltipSwitchIndexRef.current,
+      alertStationsCount: allAlertStations.length,
+      positionedCount: positionedTooltips.length
+    });
+  }, [tooltipSwitchIndex]); // 只依賴 tooltipSwitchIndex，每3秒觸發一次
+
+  // 每秒更新tooltip數據（保持位置不變）
+  useEffect(() => {
+    if (allAlertStations.length === 0) {
+      setCurrentTooltipData([]);
+      return;
+    }
+
+    // 如果還沒有分配過位置，先分配一次
+    const currentPositions = alertTooltips.length > 0 ? alertTooltips : assignTooltipPositions(allAlertStations);
+    const updatedTooltips = updateTooltipData(currentPositions, allAlertStations);
+    setCurrentTooltipData(updatedTooltips);
+
+    console.log('更新 Tooltip 資料:', {
+      alertStationsCount: allAlertStations.length,
+      tooltipIds: updatedTooltips.map(t => t.stationId)
+    });
+  }, [allAlertStations, alertTooltips]); // 依賴資料和位置，每秒更新
+
+  // 更新地圖資料
+  useEffect(() => {
+    if (!rtsData || !isMapReadyRef.current || !sourceInitializedRef.current) return;
+
+    // 為正在連線的測站添加 isConnected 屬性
+    const connectedStationIds = new Set(currentTooltipData.map(t => t.stationId));
+    const updatedGeoJSON = {
+      ...rtsData.geojson,
+      features: rtsData.geojson.features.map((feature) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          isConnected: connectedStationIds.has(feature.properties.id)
+        }
+      }))
     };
 
-    fetchData();
-    const interval = setInterval(fetchData, 1000);
-
-    return () => clearInterval(interval);
-  }, [isMapReady, updateMapData]);
+    updateMapDataRef.current(updatedGeoJSON);
+    updateTooltipLines(currentTooltipData);
+  }, [rtsData, currentTooltipData, updateTooltipLines]);
 
   useEffect(() => {
     if (isMapReady && stationData) {
       initializeMapSource();
     }
   }, [isMapReady, stationData, initializeMapSource]);
+
+  // 3秒切換tooltip選擇
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTooltipSwitchIndex(prev => {
+        const newValue = prev + 1;
+        tooltipSwitchIndexRef.current = newValue;
+        return newValue;
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="w-1/2 h-full relative">
@@ -448,7 +648,7 @@ const MapSection = React.memo(() => {
       </Map>
       
       {/* Alert Tooltips */}
-      {alertTooltips.map((tooltip, index) => {
+      {currentTooltipData.map((tooltip, index) => {
         if (!mapRef.current || !tooltip.isActive) return null;
         
         const [lon, lat] = tooltip.tooltipPosition;
