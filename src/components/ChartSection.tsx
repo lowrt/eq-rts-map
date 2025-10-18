@@ -37,21 +37,21 @@ const generateColorFromId = (id: number): string => {
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
-  
+
   hash = Math.abs(hash);
-  
+
   const hue = hash % 360;
-  const saturation = 70 + (hash % 30);
-  const lightness = 60 + (hash % 25);
-  
+  const saturation = 85 + (hash % 15); // 提高飽和度：85-100%
+  const lightness = 50 + (hash % 10); // 降低亮度：50-60%
+
   const h = hue / 360;
   const s = saturation / 100;
   const l = lightness / 100;
-  
+
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs((h * 6) % 2 - 1));
   const m = l - c / 2;
-  
+
   let r, g, b;
   if (h < 1/6) {
     r = c; g = x; b = 0;
@@ -66,11 +66,11 @@ const generateColorFromId = (id: number): string => {
   } else {
     r = c; g = 0; b = x;
   }
-  
+
   r = Math.round((r + m) * 255);
   g = Math.round((g + m) * 255);
   b = Math.round((b + m) * 255);
-  
+
   return `rgb(${r}, ${g}, ${b})`;
 };
 
@@ -200,8 +200,41 @@ const ChartSection = React.memo(() => {
   const timeLabels = useMemo(() => generateTimeLabels(CHART_LENGTH, 50), []);
 
   const chartData = useMemo(() => {
+    // 計算每個 channel 的整段最大值（絕對值）
+    const channelMaxValues: { index: number; maxAbsValue: number }[] = [];
+
+    CHANNEL_CONFIGS.forEach((_config, index) => {
+      let maxAbsValue = 0;
+
+      if (index < STATION_IDS.length) {
+        const stationId = STATION_IDS[index];
+        const stationConfig = stationConfigs[stationId];
+
+        if (stationConfig) {
+          const stationWaveform = waveformData[stationId] || [];
+
+          stationWaveform.forEach(value => {
+            if (value !== null) {
+              maxAbsValue = Math.max(maxAbsValue, Math.abs(value));
+            }
+          });
+        }
+      }
+
+      channelMaxValues.push({ index, maxAbsValue });
+    });
+
+    // 按最大值排序，值越小的 z-index 越高（order 越小）
+    channelMaxValues.sort((a, b) => a.maxAbsValue - b.maxAbsValue);
+
+    // 建立 index -> order 的映射
+    const indexToOrder: Record<number, number> = {};
+    channelMaxValues.forEach((item, order) => {
+      indexToOrder[item.index] = order;
+    });
+
     const datasets: any[] = [];
-    
+
     CHANNEL_CONFIGS.forEach((config, index) => {
       let data: (number | null)[];
 
@@ -246,6 +279,23 @@ const ChartSection = React.memo(() => {
         data = Array(CHART_LENGTH).fill(null);
       }
 
+      // 根據 order 設定 z-index，order 越小（值越小）z-index 越高
+      const order = indexToOrder[index] || 0;
+      const zIndex = (NUM_CHANNELS - order) * 2; // 為每個 channel 的兩個 dataset 預留空間
+
+      datasets.push({
+        label: `Station ${STATION_IDS[index] || index} (White)`,
+        data: data,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+        backgroundColor: 'transparent',
+        borderWidth: 0.8,
+        pointRadius: 0,
+        tension: 0,
+        fill: false,
+        spanGaps: false,
+        order: zIndex, // 白線在下層
+      });
+
       datasets.push({
         label: `Station ${STATION_IDS[index] || index}`,
         data: data,
@@ -256,18 +306,7 @@ const ChartSection = React.memo(() => {
         tension: 0,
         fill: false,
         spanGaps: false,
-      });
-
-      datasets.push({
-        label: `Station ${STATION_IDS[index] || index} (White)`,
-        data: data,
-        borderColor: 'rgb(255, 255, 255)',
-        backgroundColor: 'transparent',
-        borderWidth: 0.8,
-        pointRadius: 0,
-        tension: 0,
-        fill: false,
-        spanGaps: false,
+        order: zIndex + 1, // 彩色線在白線之上
       });
     });
 
