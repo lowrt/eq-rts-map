@@ -102,7 +102,7 @@ jobs:
           CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun run ${{ matrix.build_script }} --publish always
+        run: bun run ${{ matrix.build_script }} --publish never
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v1

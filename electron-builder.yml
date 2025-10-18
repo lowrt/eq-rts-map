@@ -28,12 +28,22 @@ win:
         - ia32
   icon: ./public/icons/app.ico
 
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
 mac:
   category: public.app-category.productivity
   icon: ./public/icons/app.png
   hardenedRuntime: true
   target:
     - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
       arch:
         - arm64
         - x64
@@ -49,8 +59,3 @@ linux:
       arch:
         - x64
         - arm64
-
-publish:
-  - provider: github
-    owner: ExpTechTW
-    repo: eq-rts-map

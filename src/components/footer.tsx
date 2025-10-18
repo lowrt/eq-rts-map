@@ -11,9 +11,9 @@ export default function Footer() {
 
   useEffect(() => {
     if (currentVersion) {
-      setVersion(`v${currentVersion}`);
+      setVersion(currentVersion);
     } else {
-      setVersion('v1.0.0');
+      setVersion('1.0.0');
     }
   }, [currentVersion]);
 
@@ -29,7 +29,7 @@ export default function Footer() {
     <footer className="fixed bottom-3 left-3 z-50">
       <div className="bg-background/90 backdrop-blur-sm border border-border/50 rounded-md px-2.5 py-1.5 shadow-md flex items-center gap-2">
         <p className="text-[10px] text-muted-foreground font-medium">
-          {version || 'v1.0.0'}
+          {version || '1.0.0'}
         </p>
         <div className="w-px h-3 bg-border/60" />
         <Button
