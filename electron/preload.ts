@@ -25,4 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 
   getAudioPath: (audioFile: string) => ipcRenderer.invoke('get-audio-path', audioFile),
+
+  setDockBadge: (text: string) => ipcRenderer.invoke('set-dock-badge', text),
+  clearDockBadge: () => ipcRenderer.invoke('clear-dock-badge'),
+  bounceDock: (type?: 'critical' | 'informational') => ipcRenderer.invoke('bounce-dock', type),
 });

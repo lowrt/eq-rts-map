@@ -12,13 +12,11 @@ export interface DownloadProgress {
 }
 
 export interface ElectronAPI {
-  // 更新相關
   checkForUpdates: () => Promise<{ success: boolean; updateInfo?: UpdateInfo; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => void;
   getAppVersion: () => Promise<string>;
 
-  // 更新事件監聽
   onUpdateChecking: (callback: () => void) => void;
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void;
   onUpdateNotAvailable: (callback: (info: UpdateInfo) => void) => void;
@@ -26,12 +24,14 @@ export interface ElectronAPI {
   onUpdateDownloadProgress: (callback: (progress: DownloadProgress) => void) => void;
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => void;
 
-  // 移除監聽器
   removeUpdateListeners: () => void;
 
-  // 其他功能
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
   getAudioPath: (audioFile: string) => Promise<string>;
+
+  setDockBadge: (text: string) => Promise<{ success: boolean; error?: string }>;
+  clearDockBadge: () => Promise<{ success: boolean; error?: string }>;
+  bounceDock: (type?: 'critical' | 'informational') => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {

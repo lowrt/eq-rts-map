@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import serve from 'electron-serve';
 import path from 'path';
@@ -13,7 +13,72 @@ const getPreloadPath = () => {
   return path.join(__dirname, 'preload.cjs');
 };
 
+const setupDock = () => {
+  if (process.platform === 'darwin' && app.dock) {
+    const iconPath = isProd 
+      ? path.join(process.resourcesPath, 'icons', 'app.png')
+      : path.join(app.getAppPath(), 'public', 'icons', 'app.png');
+    
+    try {
+      const dockIcon = nativeImage.createFromPath(iconPath);
+      if (!dockIcon.isEmpty()) {
+        app.dock.setIcon(dockIcon);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to set dock icon:', error);
+    }
+
+    app.dock.setBadge('');
+    
+    app.on('dock-click' as any, () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        
+        if (!mainWindow.isVisible()) {
+          mainWindow.show();
+        }
+        
+        mainWindow.focus();
+        mainWindow.moveTop();
+      } else {
+        createMainWindow().then(window => {
+          mainWindow = window;
+        });
+      }
+    });
+  }
+};
+
 let mainWindow: BrowserWindow | null;
+
+const createMainWindow = async (): Promise<BrowserWindow> => {
+  const window = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: getPreloadPath(),
+    },
+  });
+
+  window.once('ready-to-show', () => {
+    window.show();
+  });
+
+  if (isProd) {
+    await loadURL(window);
+    await window.loadURL('app://-/home.html');
+    window.setMenu(null);
+  } else {
+    await window.loadURL('http://localhost:3000/home');
+  }
+
+  return window;
+};
 
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
@@ -82,6 +147,8 @@ autoUpdater.on('error', (err) => {
 (async () => {
   await app.whenReady();
 
+  setupDock();
+
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
   });
@@ -125,22 +192,31 @@ autoUpdater.on('error', (err) => {
     }
   });
 
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: getPreloadPath(),
-    },
+  ipcMain.handle('set-dock-badge', async (_event, text: string) => {
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.setBadge(text);
+      return { success: true };
+    }
+    return { success: false, error: 'Not on macOS' };
   });
 
-  if (isProd) {
-    await loadURL(mainWindow);
-    await mainWindow.loadURL('app://-/home.html');
-  } else {
-    await mainWindow.loadURL('http://localhost:3000/home');
-  }
+  ipcMain.handle('clear-dock-badge', async () => {
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.setBadge('');
+      return { success: true };
+    }
+    return { success: false, error: 'Not on macOS' };
+  });
+
+  ipcMain.handle('bounce-dock', async (_event, type: 'critical' | 'informational' = 'informational') => {
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.bounce(type);
+      return { success: true };
+    }
+    return { success: false, error: 'Not on macOS' };
+  });
+
+  mainWindow = await createMainWindow();
 
   if (app.isPackaged) {
     console.log('📦 App version:', app.getVersion());
@@ -169,22 +245,6 @@ app.on('window-all-closed', () => {
 
 app.on('activate', async () => {
   if (BrowserWindow.getAllWindows().length === 0 && mainWindow === null) {
-    mainWindow = new BrowserWindow({
-      width: 1200,
-      height: 800,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: getPreloadPath(),
-      },
-    });
-
-    if (isProd) {
-      await loadURL(mainWindow);
-      await mainWindow.loadURL('app://-/home.html');
-      mainWindow.setMenu(null);
-    } else {
-      await mainWindow.loadURL('http://localhost:3000/home');
-    }
+    mainWindow = await createMainWindow();
   }
 });
