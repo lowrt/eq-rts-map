@@ -6,7 +6,7 @@ on:
       - main
   pull_request:
     branches:
-      - main
+      - main 
 
 jobs:
   build-check:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Bun
+      - name: Setup Bun 
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
