@@ -45,6 +45,7 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false,
       preload: getPreloadPath(),
     },
   });
