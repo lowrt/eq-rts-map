@@ -117,6 +117,7 @@ autoUpdater.on('update-downloaded', (info) => {
   }
 
   setTimeout(() => {
+    isQuitting = true;
     autoUpdater.quitAndInstall(true, true);
   }, 3000);
 });
@@ -155,7 +156,8 @@ autoUpdater.on('error', (err) => {
   });
 
   ipcMain.on('install-update', () => {
-    autoUpdater.quitAndInstall();
+    isQuitting = true;
+    autoUpdater.quitAndInstall(true, true);
   });
 
   ipcMain.handle('open-external', async (_event, url: string) => {
