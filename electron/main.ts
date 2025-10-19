@@ -9,10 +9,6 @@ const loadURL = serve({
   scheme: 'app'
 });
 
-const getPreloadPath = () => {
-  return path.join(__dirname, 'preload.cjs');
-};
-
 const setupDock = () => {
   if (process.platform === 'darwin' && app.dock) {
     const iconPath = isProd 
@@ -46,7 +42,7 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
       nodeIntegration: false,
       contextIsolation: true,
       backgroundThrottling: false,
-      preload: getPreloadPath(),
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
 
